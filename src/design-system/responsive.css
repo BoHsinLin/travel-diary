@@ -1,22 +1,21 @@
 /* Figma M1 responsive rules: nodes 105:21, 105:34, 105:47 and 105:60. */
-@media(max-width:699px){.auth-shell,.overview-shell,.mobile-page,.settings-page{width:100%!important;max-width:none!important}}
+@media(max-width:699px){.overview-shell,.mobile-page,.settings-page{width:100%!important;max-width:none!important}}
 @media(min-width:700px){
-  .planner,.phone-shell.flow-page,.mobile-page,.settings-page,.overview-shell,.auth-shell{width:100%;max-width:680px}
+  .planner,.phone-shell.flow-page,.mobile-page,.settings-page,.overview-shell{width:100%;max-width:680px}
   .planner-body{grid-template-columns:180px minmax(0,1fr);gap:14px}.planner-body>.status-notice,.planner-body>.cross-day-drop{grid-column:1/-1}.planner .day-switcher{grid-template-columns:1fr;height:auto;align-self:start}.planner-rows{grid-column:2;grid-row:1/span 8}.planner-cta{grid-column:2}
   .flow-page:has(.search-field) .flow-body{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.flow-page:has(.search-field) .location-bar,.flow-page:has(.search-field) .search-field,.flow-page:has(.search-field) .filter-row,.flow-page:has(.search-field) .state-card{grid-column:1/-1}
-  .people-page .member-list,.day-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.overview-content{height:auto;padding:40px}.auth-form{max-width:560px;margin-inline:auto}
+  .people-page .member-list,.day-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.overview-content{height:auto;padding:40px}
   .app-shell{grid-template-columns:minmax(390px,720px) minmax(300px,320px)!important;justify-content:center}.today-main{width:100%;margin-left:0!important}
 }
 @media(min-width:1100px){
   .planner,.phone-shell.flow-page{display:grid;grid-template-columns:300px minmax(0,1fr);max-width:1120px;min-height:100vh;margin-block:0;border-radius:0;box-shadow:none}.planner-header,.flow-header{min-height:100vh;padding:56px 34px}.planner-body,.flow-body{align-content:start;padding:40px}.planner-body{grid-template-columns:220px minmax(0,1fr)}
   .mobile-page,.settings-page,.overview-shell{max-width:1120px;min-height:100vh;margin-top:0;border-radius:0;box-shadow:none}.mobile-page,.settings-page{padding:56px 64px}.people-page{display:grid;grid-template-columns:320px minmax(0,1fr);align-content:start;column-gap:48px}.people-page>.back-link,.people-page>h1,.people-page>.lead,.people-page>.invite-card,.people-page>.privacy-note{grid-column:1}.people-page>h2,.people-page>.member-list,.people-page>.page-primary{grid-column:2}.people-page>h2{grid-row:1}.people-page>.member-list{grid-row:2/span 5}.people-page>.page-primary{align-self:end}
   .overview-shell{margin:0}.overview-content{padding:56px 64px}.trip-summary{max-width:720px}
-  .auth-page{align-items:center}.auth-shell{display:grid;grid-template-columns:minmax(360px,44%) minmax(480px,56%);max-width:1040px;min-height:680px;margin:32px}.auth-brand{height:auto;padding:88px 56px}.auth-form{width:100%;max-width:520px;justify-content:center;padding:56px}
 }
 @media(max-width:430px){
   .planner-row{grid-template-columns:44px minmax(0,1fr) 72px}.planner-row strong{white-space:normal}.planner .day-switcher{overflow-x:auto;grid-template-columns:repeat(4,minmax(64px,1fr))}
-  .field-grid,.detail-facts{grid-template-columns:1fr}.place-card{grid-template-columns:72px minmax(0,1fr) 48px}.place-card>span{width:72px}.flow-body,.today-content,.auth-form{padding-bottom:max(28px,env(safe-area-inset-bottom))}
-  .auth-brand{height:auto;min-height:220px}.day-header{align-items:flex-start}.day-header h2{overflow-wrap:anywhere}.view-switch{flex:0 0 auto}.view-switch button{width:68px}
+  .field-grid,.detail-facts{grid-template-columns:1fr}.place-card{grid-template-columns:72px minmax(0,1fr) 48px}.place-card>span{width:72px}.flow-body,.today-content{padding-bottom:max(28px,env(safe-area-inset-bottom))}
+  .day-header{align-items:flex-start}.day-header h2{overflow-wrap:anywhere}.view-switch{flex:0 0 auto}.view-switch button{width:68px}
 }
 @media(max-width:340px){.pace-line{grid-template-columns:auto 1fr}.pace-line p{grid-column:1/-1}.day-header{display:grid}.field-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.map-pin,.planner-row,.place-card,.phone-shell,.today-main{animation:none!important;transform:none!important}}
