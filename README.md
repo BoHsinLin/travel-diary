@@ -34,4 +34,6 @@ pnpm bundle:report
 
 `.github/workflows/pages.yml` is intentionally manual (`workflow_dispatch`) until a GitHub repository and Pages settings are supplied. It builds with `VITE_BASE_PATH=/<repository-name>/` and copies `index.html` to `404.html` for SPA fallback.
 
-Before enabling the workflow, set production `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as GitHub environment secrets or variables, then add the exact Pages URL to Supabase Auth redirect URLs. Do not put service-role keys or local `.env` files in GitHub Pages.
+Before enabling the workflow, create the `github-pages` GitHub Environment and set `VITE_SUPABASE_URL` as an Environment variable and `VITE_SUPABASE_ANON_KEY` as an Environment secret. The workflow fails before building if either value is absent, so production cannot silently use the demo data source. Do not put service-role keys or local `.env` files in GitHub Pages.
+
+Add this exact callback URL to the production Supabase Auth redirect allow list (replace the placeholders with the actual Pages owner and repository): `https://<github-owner>.github.io/<repository-name>/trips`. Both Magic Link and Google OAuth use that base-aware `/trips` callback, including when the app is hosted below `/<repository-name>/`.

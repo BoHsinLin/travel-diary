@@ -1,6 +1,6 @@
 # 日韓旅遊規劃 PWA｜Project Hub
 
-最後更新：2026-08-31 13:01:23 +08:00（Asia/Taipei）  
+最後更新：2026-08-31 13:25:37 +08:00（Asia/Taipei）
 目前里程碑：**M1 核心已接受；進入 PWA／GitHub CI／部署準備**
 
 ## 專案狀態
@@ -11,7 +11,7 @@
 | Figma／UX | 95% | M1 ACCEPTED／WAIT | M1 規格與資產已放行；等待前端實作差異回報 |
 | 前端核心 | 90% | M1 ACCEPTED／WAIT | Application smoke 與資料完整性通過 |
 | 後端 | 96% | ACCEPTED／WAIT | local recovery、持久化與 startup preflight 驗收通過 |
-| 測試／PWA／部署 | 15% | ACTIVE | PWA、code splitting、Git／CI、GitHub Pages 準備 |
+| 測試／PWA／部署 | 25% | CHANGES REQUESTED／ACTIVE | 修正 Pages Supabase env、base-path Auth redirect 與真正 offline shell |
 
 整體 MVP 管理估算：**約 82%**。
 
@@ -118,6 +118,14 @@
 - unit／integration／E2E smoke test 可由 CI 重現。
 
 ## 更新紀錄
+
+### 2026-08-31 13:25:37 +08:00｜專案經理｜PWA-CI PARTIAL ACCEPT／CHANGES REQUESTED
+
+- 接受：Git main baseline／安全 `.gitignore`、frozen install、typecheck、8 files／28 tests、build、route lazy loading、最大 JS 440.17 KiB、CI 基線與手動 Pages workflow 骨架。
+- P0-1：Pages workflow 的 build 未注入 production `VITE_SUPABASE_URL`／`VITE_SUPABASE_ANON_KEY`；目前觸發會建出 demo fallback。需從 `github-pages` environment variables／secrets 明確映射，缺值時 fail closed，禁止用 service-role key。
+- P0-2：Auth `redirectTo` 固定為 `${window.location.origin}/trips`，忽略 `VITE_BASE_PATH`；GitHub Pages 必須產生 `https://<owner>.github.io/<repo>/trips` 並與 Supabase Redirect URLs allow list 精確一致。
+- P0-3：Service Worker install 只 precache HTML／manifest，未包含 hashed entry JS/CSS；首次安裝後立即離線不能保證 App Shell 可執行。需由 build manifest 產生版本化 precache 清單，至少包含 HTML、entry JS/CSS、manifest 與必要 icons；route chunks可 runtime cache，但敏感請求仍須排除。
+- P1：補可重現的 Pages-base build smoke、production env fail-closed test、auth redirect URL test，以及真正的首次安裝後離線 shell 驗證。前端／PWA 工程師繼續唯一 active，不切換其他角色。
 
 ### 2026-08-31 13:01:23 +08:00｜專案經理｜FRONTEND M1 ACCEPTED／PWA-CI ACTIVE
 

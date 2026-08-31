@@ -1,6 +1,6 @@
 # 前端 ↔ 專案經理｜協作通道
 
-最後更新：2026-08-31 13:01:23 +08:00（Asia/Taipei）
+最後更新：2026-08-31 13:35:42 +08:00（Asia/Taipei）
 
 ### 2026-08-28 16:11:03 +08:00｜前端｜DONE
 - 本批目標：修正 Today 行程列「開始導航」圖示與文字跑版，並防止再次發生。
@@ -78,11 +78,11 @@
 
 ## 當前前端狀態
 
-- 完成度：M1 前端核心約 90%，狀態為 `M1 ACCEPTED／PWA-CI ACTIVE`。
+- 完成度：M1 前端核心約 90%；PWA／CI 狀態為 `CHANGES REQUESTED／ACTIVE`。
 - 2026-08-31 重驗：typecheck、6 files／19 tests、production build（2026 modules）通過。
 - 已完成：M1 UI／RWD、Auth 與 protected routes、Supabase repositories、Realtime client、typed error mapping、Planner optimistic update／rollback 實作。
 - 已交付待重驗：TripDataContext rollback／retry tests（前端回報 7 files／25 tests）。
-- 未完成：Owner／Viewer application-level Supabase smoke、PWA、CI 與部署。
+- 未完成：PWA offline shell、Pages production Supabase env／Auth base-path、實際 GitHub repository 與部署。
 - 施工限制：前端是目前唯一 active assignee；後端與 Figma 維持 WAIT。
 
 ## 經理目前指令
@@ -94,6 +94,26 @@
 5. 每批必須附 build、test、四 viewport 截圖與變更清單。
 
 ## 更新紀錄
+
+### 2026-08-31 13:35:42 +08:00｜前端→經理｜REVIEW／PWA-CI
+
+- 本批目標：完成 13:25:37 退回的 Pages production config、base-aware Auth callback、版本化 offline shell 與可稽核 PWA update。
+- 已完成：Pages workflow 注入 `github-pages` Environment 的 Supabase URL／anon key，缺值 fail closed；Magic Link／Google 回呼統一走 base-aware `/trips` helper，root 與 `/travel/` 測試通過；build-time worker 預快取 hashed JS/CSS、manifest、icons 並清除舊 cache；保留 Authorization／Auth／REST／Realtime／Storage 排除；`404.html` SPA fallback、update prompt contract、README allowlist 皆已補齊。
+- 驗證證據：typecheck、Vitest 9 files／30 tests、production build、cache contract、bundle report 全通過；缺 production config 的 build 如預期 exit 1；`/travel/` Pages-base build 的 asset／manifest／404／hashed precache 檢查通過。詳見 `docs/evidence/pwa-ci-2026-08-31/fix-verification.md`。
+- 未完成：實際 GitHub Pages deployment、production Magic Link／Google provider redirect、目標瀏覽器實際 installability。
+- 阻塞：需要 GitHub repository／`github-pages` Environment 與 Supabase production redirect allow-list 權限；本批禁止自行部署或變更遠端 Supabase。
+- 風險與技術債：SVG 192／512 icon 已輸出和預快取；目前無平台拒絕訊號，若部署後 installability 被拒絕，才補 PNG／maskable fallback。
+- 下一批：由有權限者完成 Environment 與 allow-list 後，手動觸發 workflow 並以實際 Pages URL 驗收 auth redirect、deep link、offline install。
+- 是否需要經理決策：是；請提供 GitHub Pages repository／Environment 與 Supabase allow-list 的設定／驗收窗口，才可進行線上驗收。
+
+### 2026-08-31 13:25:37 +08:00｜經理｜CHANGES_REQUESTED／PWA-CI
+
+- 已通過：gitignore 無敏感檔追蹤；frozen install、typecheck、8 files／28 tests、build、cache guard、bundle budget 全通過；最大 JS 440.17 KiB。
+- P0-1：`.github/workflows/pages.yml` 必須把 GitHub environment 的 production Supabase URL／publishable key 注入 Vite build；缺值必須中止，不得自動落入 demo。
+- P0-2：建立 base-aware Auth callback helper，Magic Link／Google redirect 使用 `new URL('trips', origin + BASE_URL)` 或等效安全方式；補 root 與 `/travel/` 測試，文件列出需要加入 Supabase allow list 的精確 Pages URL。
+- P0-3：改為 build-time 版本化 precache，包含 hashed entry JS/CSS；現在 `SHELL` 只有 HTML／manifest，不足以保證首次安裝後離線啟動。敏感 Supabase／Authorization exclusion 必須保留並擴充測試。
+- P1：加入 production-config fail-closed、Pages-base deep link／404、首次安裝後 offline App Shell、update prompt 的自動或可稽核驗證；SVG icons 的 installability 需實測，若平台不接受則提供 192／512 PNG 與獨立 maskable icon。
+- 下一檢查點：所有檢查與 build 通過後 `REVIEW`；仍不可宣稱已部署，亦不得修改遠端 Supabase 設定。
 
 ### 2026-08-31 13:21:48 +08:00｜前端→經理｜REVIEW／PWA-CI
 
