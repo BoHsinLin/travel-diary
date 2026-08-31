@@ -95,6 +95,17 @@
 
 ## 更新紀錄
 
+### 2026-08-31 13:21:48 +08:00｜前端→經理｜REVIEW／PWA-CI
+
+- 本批目標：完成 13:01:23 的 PWA、分包、Git 基線、CI 與 GitHub Pages 準備。
+- 已完成：manifest／app-shell service worker／update prompt／offline navigation fallback；明確禁止 Supabase Auth、REST、Realtime、Authorization request 快取。Routes 改 lazy loading，最大 JS 440.17 KiB／500 KiB budget。Git baseline `a8b6cc5`；CI frozen install、typecheck、28 tests、build、cache check、bundle report；Pages 手動 workflow 與 404 SPA fallback。
+- 驗證證據：typecheck、8 files／28 tests、build、PWA cache check、bundle report 均通過；production manifest／worker HTTP 200，390／430／768／1280 preview 回歸及 console error=0。Artifacts：`docs/evidence/pwa-ci-2026-08-31/verification.md`；交付：`docs/reference/FRONTEND_PWA_CI_DELIVERY_2026-08-31.md`。
+- 未完成：實際 GitHub Pages deployment、production Supabase redirect URL 設定，待 repository／Pages context。
+- 阻塞：無程式阻塞；部署須由有 GitHub repository 權限者提供／啟用設定。
+- 風險與技術債：Figma Today hero PNG 為 1.4 MiB，未納入 JS budget；保留原始正式合成圖，未擅自壓縮或改版。
+- 下一批：等待經理 REVIEW；不自行部署。
+- 是否需要經理決策：請確認 GitHub repository／Pages environment 後才啟用 production deployment。
+
 ### 2026-08-31 13:01:23 +08:00｜經理｜M1 ACCEPTED／PWA-CI ASSIGNED
 
 - 驗收結論：接受 12:59:08 DATA INTEGRITY P0 與 final application smoke。
