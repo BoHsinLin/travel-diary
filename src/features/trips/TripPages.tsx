@@ -1,0 +1,11 @@
+import { Link, Navigate, useParams } from 'react-router-dom';
+import heroImage from '../../assets/figma/seoul-hero-clean-v2.webp';
+import { AvatarGroup } from '../../components/primitives/Objects';
+import { BottomNavigation } from '../../components/navigation/BottomNavigation';
+import { useAuth } from '../../app/AuthContext';
+import { useTrip, useTripDays, useTrips } from './queries';
+import { Icon } from '../../components/icons/Icon';
+import './trips.css';
+const date = (value: string) => new Intl.DateTimeFormat('zh-TW', { month: 'numeric', day: 'numeric' }).format(new Date(`${value}T00:00:00`));
+export function TripListPage() { const { data = [], isLoading } = useTrips(); const { signOut } = useAuth(); return <main className="trip-index"><header><div><p>MY JOURNEYS</p><h1>你的旅程</h1></div><button onClick={signOut}>登出</button></header>{isLoading ? <p>載入中…</p> : <section className="trip-grid">{data.map((trip) => <Link className="trip-tile" key={trip.id} to={`/trips/${trip.id}/overview`}><img src={heroImage} alt=""/><div><span>{date(trip.startDate)} — {date(trip.endDate)}</span><h2>{trip.title}</h2><p>{trip.destination} · 與旅伴共同編輯</p></div></Link>)}</section>}</main>; }
+export function TripOverviewPage() { const { tripId } = useParams(); const { data: trip, isLoading } = useTrip(tripId); const { data: days = [] } = useTripDays(tripId); if (!isLoading && !trip) return <Navigate to="/trips" replace />; return <main className="overview-page">{trip && <div className="overview-shell"><section className="overview-content"><p className="overview-kicker">2026 AUG · SEOUL</p><h1>{trip.title}</h1><Link className="trip-summary" to={`/trips/${trip.id}/today`}><strong>一起，把旅行寫成故事。</strong><span>4 位旅伴 · 18 個收藏 · 12 段行程</span><AvatarGroup names={['柏','安','晴']} extra={1}/></Link><h2>每日安排</h2><div className="day-cards">{days.map((day) => <Link key={day.id} to={`/trips/${trip.id}/plan?day=${day.id}`}><span className="day-date"><b>DAY {day.sortOrder}</b>{date(day.date)}</span><span className="day-copy"><strong>{day.title}</strong><small>{day.sortOrder + 2} 個行程</small></span><i aria-hidden="true"><Icon name="forward" size={20}/></i></Link>)}</div><Link className="budget-strip" to={`/trips/${trip.id}/budget`}><span>共同預算剩餘</span><strong>₩ 428,000</strong></Link></section><BottomNavigation/></div>}</main>; }

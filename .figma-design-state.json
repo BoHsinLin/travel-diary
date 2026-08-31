@@ -1,0 +1,100 @@
+{
+  "runId": "travel-journal-pwa-2026-08-25",
+  "fileKey": "7fFURmWK9uPeYiVTMnMsBQ",
+  "phase": "accepted",
+  "step": "M1-spec-and-QA-manager-accepted",
+  "entities": {
+    "collections": {
+      "Primitives": "VariableCollectionId:5:2",
+      "Dimension": "VariableCollectionId:5:3",
+      "Color": "VariableCollectionId:5:4"
+    },
+    "variables": {
+      "summary": {
+        "primitiveColors": 18,
+        "dimensions": 19,
+        "semanticColors": 18,
+        "colorModes": ["Light", "Dark"]
+      }
+    },
+    "pages": {
+      "Cover": "0:1",
+      "Getting Started": "13:2",
+      "Foundations": "13:3",
+      "--- Components": "13:4",
+      "Components": "13:5",
+      "--- Utilities": "13:6",
+      "Utilities": "13:7"
+      ,"Core Screens": "28:2"
+    },
+    "components": {
+      "Button": "16:36"
+      ,"Icon Button": "17:12"
+      ,"Segmented Control": "19:7"
+      ,"Avatar": "20:7"
+      ,"Avatar Group": "20:8"
+      ,"Pace Chip": "20:26"
+      ,"Day Selector": "21:9"
+      ,"Status Notice": "21:23"
+      ,"Bottom Navigation": "24:2"
+      ,"Itinerary Row": "25:16"
+      ,"Fixed Anchor": "26:2"
+      ,"Next Stop Panel": "27:2"
+    },
+    "screens": {
+      "Today Timeline": "28:3",
+      "Today Map": "28:4",
+      "Quick Adjust": "28:5",
+      "Trip Overview": "28:6",
+      "Place Details": "28:7",
+      "Edit Itinerary": "28:8",
+      "Companions & Permissions": "28:9",
+      "Login & Invite": "50:44",
+      "Trip Settings & Pace": "50:45",
+      "Booking Vault": "50:46",
+      "Budget & Split": "50:47",
+      "Version History": "50:48",
+      "Public Share & Privacy": "50:49",
+      "Itinerary Planner": "61:44",
+      "Nearby & Popular": "61:45",
+      "Place Search & Filters": "61:46",
+      "Add to Itinerary": "61:47",
+      "Conflict Resolution": "61:48",
+      "Flight Change Reschedule": "61:49"
+    }
+  },
+  "pendingValidations": [
+    "Frontend: validate browser computed contrast, keyboard order, screen reader, 200% reflow, safe-area and reduced-motion",
+    "Frontend: export approved SVG assets and create Code Connect records",
+    "Frontend: submit four viewport implementation screenshots and side-by-side comparison"
+  ],
+  "completedSteps": [
+    "P0.a",
+    "P0.b",
+    "P0.c",
+    "P0.d",
+    "P0.e",
+    "P0.f",
+    "P1.a",
+    "P1.b",
+    "P1.c",
+    "P1.d",
+    "P1.e",
+    "P1.f",
+    "P1.g",
+    "P1.h",
+    "P2.a",
+    "P2.b",
+    "P2.c",
+    "phase0-user-approval",
+    "figma-branch-handoff-record"
+  ],
+  "lastVerifiedAt": "2026-08-28T15:07:50+08:00",
+  "prototype": {
+    "verifiedPath": ["61:44", "61:45", "61:46", "61:47", "61:48", "61:44"],
+    "backControls": ["73:52", "73:55", "73:58", "73:61", "73:64", "73:67"],
+    "settingsSaveAction": "54:95",
+    "reactionCountAfterFix": 25
+  },
+  "next": "Frontend implementation round: approved icons, Supabase adapter/Auth/Realtime, interaction states and browser accessibility QA"
+}

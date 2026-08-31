@@ -1,0 +1,2 @@
+import type { Place, Trip, TripDay, TripMember } from '../../contracts/entities';
+export interface TripRepository { listTrips(): Promise<Trip[]>; getTrip(tripId: string): Promise<Trip | null>; listDays(tripId: string): Promise<TripDay[]>; listMembers(tripId: string): Promise<TripMember[]>; listPlaces(tripId: string): Promise<Place[]>; getPlace(tripId: string, placeId: string): Promise<Place | null>; }

@@ -1,0 +1,19 @@
+* { box-sizing: border-box; }
+html { background: var(--color-bg-canvas); }
+body { margin: 0; min-width: 320px; min-height: 100vh; color: var(--color-text-primary); background: var(--color-bg-canvas); font-family: var(--font-ui); }
+button, input { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button, a, [role='tab'] { transition: color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-spring), box-shadow var(--motion-fast) var(--ease-standard); }
+button:active:not(:disabled), a:active { transform: scale(.97); }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--color-status-info); outline-offset: 3px; }
+#root { min-height: 100vh; }
+.route-loading{display:grid;min-height:100vh;place-items:center;color:var(--color-text-secondary)}
+.phone-shell, .today-main { animation: page-enter var(--motion-slow) var(--ease-standard) both; }
+@keyframes page-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes notice-enter { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes pin-focus { 0%, 100% { box-shadow: 0 0 0 0 rgb(232 117 61 / 0); } 50% { box-shadow: 0 0 0 9px rgb(232 117 61 / 14%); } }
+@media (max-width: 699px) { html, body, #root { width: 100%; max-width: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; } }
+@media(max-width:430px){h1,h2,h3,p,a,button,span,strong{overflow-wrap:anywhere}}
+@media(min-width:700px) and (max-width:1099px){.trip-layout__content{width:min(100%,768px);margin-inline:auto}}
+ .pwa-update{position:fixed;z-index:30;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #d6c6ae;border-radius:14px;background:#fff9f0;color:#2c2925;box-shadow:0 12px 32px #3124152b;font-size:14px}.pwa-update button{border:0;border-radius:9px;padding:8px 10px;background:#2e6d4f;color:#fff;font:inherit;font-weight:700}@media(max-width:430px){.pwa-update{left:16px;right:16px;justify-content:space-between}}

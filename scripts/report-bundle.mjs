@@ -1,0 +1,10 @@
+import { readdir, stat } from 'node:fs/promises';
+const root = new URL('../dist/', import.meta.url);
+const assets = new URL('./assets/', root);
+const files = await readdir(assets);
+const rows = await Promise.all(files.map(async (file) => ({ file, bytes: (await stat(new URL(file, assets))).size })));
+const ordered = rows.sort((left, right) => right.bytes - left.bytes);
+for (const { file, bytes } of ordered) console.log(`${(bytes / 1024).toFixed(2).padStart(8)} KiB  assets/${file}`);
+const largestJavaScript = ordered.filter(({ file }) => file.endsWith('.js'))[0]?.bytes ?? 0;
+console.log(`Largest JavaScript chunk: ${(largestJavaScript / 1024).toFixed(2)} KiB (budget: 500.00 KiB)`);
+if (largestJavaScript > 500 * 1024) process.exitCode = 1;

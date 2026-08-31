@@ -1,0 +1,43 @@
+project_id = "travel-planner-pwa"
+
+[api]
+enabled = true
+port = 55431
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 55432
+shadow_port = 55435
+major_version = 15
+
+[realtime]
+enabled = true
+
+[analytics]
+enabled = true
+port = 55433
+
+[studio]
+enabled = true
+port = 55434
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/auth/callback"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+
+[inbucket]
+enabled = true
+port = 55436
+
+[storage]
+enabled = false

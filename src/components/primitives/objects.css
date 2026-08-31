@@ -1,0 +1,27 @@
+.button { min-height: 44px; border-radius: var(--radius-full); border: 1px solid transparent; font-weight: 600; cursor: pointer; transition: background 160ms ease, transform 160ms ease; }
+.button:active:not(:disabled) { transform: translateY(1px); }
+.button--small { padding: var(--spacing-sm) var(--spacing-lg); }
+.button--medium { padding: var(--spacing-md) var(--spacing-xl); }
+.button--large { padding: var(--spacing-lg) var(--spacing-2xl); }
+.button--primary { color: var(--color-text-on-accent); background: var(--color-bg-accent); }
+.button--primary:hover:not(:disabled) { background: var(--color-bg-accent-hover); }
+.button--secondary { color: var(--color-text-primary); background: var(--color-bg-surface); border-color: var(--color-icon-accent); }
+.button:disabled { color: var(--color-text-muted); background: var(--color-bg-subtle); border-color: var(--color-border-default); cursor: not-allowed; }
+
+.avatar { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; color: var(--color-text-on-accent); background: var(--color-bg-positive); font-size: 13px; font-weight: 600; }
+.avatar--more { color: var(--color-text-primary); background: var(--color-bg-subtle); }
+.avatar-group { display: flex; align-items: center; }
+.avatar-group .avatar { margin-right: -10px; border: 2px solid var(--color-bg-surface); }
+.avatar-group .avatar:last-child { margin-right: 0; }
+
+.pace-chip { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; padding: 4px 12px; border-radius: var(--radius-full); color: var(--color-text-primary); background: var(--color-bg-subtle); font-size: 12px; font-weight: 600; }
+.pace-chip--selected { color: var(--color-text-on-accent); background: var(--color-bg-positive); }
+
+.status-notice { width: 100%; padding: 12px 16px; border: 2px solid var(--notice-color); border-radius: var(--radius-md); background: var(--color-bg-surface); animation: notice-enter var(--motion-base) var(--ease-spring) both; }
+.status-notice strong, .status-notice span { display: block; }
+.status-notice strong { font-size: 14px; }
+.status-notice span { margin-top: 4px; color: var(--color-text-secondary); font-size: 12px; }
+.status-notice--info { --notice-color: var(--color-status-info); }
+.status-notice--success { --notice-color: var(--color-status-success); }
+.status-notice--warning { --notice-color: var(--color-status-warning); }
+.status-notice--conflict { --notice-color: var(--color-status-error); }

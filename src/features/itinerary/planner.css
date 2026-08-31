@@ -1,0 +1,36 @@
+.planner { max-width: 560px; }
+.planner-header { min-height: 120px; padding: 12px 24px 14px; border-bottom: 1px solid var(--color-border-default); color: var(--color-text-primary); background: var(--color-bg-surface); }
+.planner-header a { display: inline-flex; min-width: 88px; min-height: 44px; align-items: center; color: var(--color-icon-accent); font-size: 12px; font-weight: 700; text-decoration: none; }
+.planner-header h1 { margin: 0; font: 600 27px/1.15 var(--font-brand); }
+.planner-header p { margin: 5px 0 0; font-size: 13px; }
+.planner-body { display: grid; gap: 10px; padding: 14px 18px 24px; }
+.day-switcher { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; height: 44px; padding: 5px; border-radius: 14px; background: var(--color-bg-subtle); }
+.day-switcher button { border: 0; border-radius: 10px; color: var(--color-text-secondary); background: transparent; font-size: 12px; cursor: pointer; }
+.day-switcher button.is-selected { color: white; background: var(--color-bg-accent); font-weight: 700; }
+.planner-anchor { display: flex; min-height: 62px; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 15px; background: var(--color-bg-accent-soft); }
+.planner-anchor div { display: grid; gap: 3px; }
+.planner-anchor span { color: var(--color-icon-accent); font-size: 11px; font-weight: 700; }
+.planner-anchor strong { font-size: 14px; }
+.planner-anchor small { color: var(--color-text-muted); font-size: 11px; font-weight: 700; }
+.planner-rows { display: grid; gap: 10px; }
+.planner-row { display: grid; grid-template-columns: 44px 1fr 72px; min-height: 82px; align-items: center; border: 1px solid var(--color-border-default); border-radius: var(--radius-lg); background: var(--color-bg-surface); }
+.planner-row:hover { border-color: color-mix(in srgb, var(--color-border-default), var(--color-bg-accent) 30%); box-shadow: 0 7px 20px -16px rgb(41 38 36 / 45%); }
+.planner-row.is-dragging { z-index: 2; border-color: var(--color-bg-accent); box-shadow: var(--shadow-floating); opacity: .88; transform: scale(1.02) rotate(.25deg); }
+.planner-row > div { display: grid; gap: 4px; min-width: 0; }
+.planner-row strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.planner-row span { color: var(--color-text-secondary); font-size: 11px; }
+.drag-handle { width: 44px; height: 44px; overflow: hidden; border: 0; color: var(--color-text-muted); background: transparent; font-size: 10px; cursor: grab; }
+.row-actions { display: flex; }.row-actions button { width: 34px; height: 44px; border: 0; color: var(--color-text-secondary); background: transparent; font-size: 11px; }.row-actions button:disabled { opacity: .3; }
+.empty-day { display: grid; min-height: 120px; place-items: center; margin: 0; border: 1px dashed var(--color-border-default); border-radius: var(--radius-lg); color: var(--color-text-muted); }
+.holding { display: grid; gap: 5px; min-height: 88px; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--color-bg-subtle); }
+.holding strong { font-size: 12px; }
+.holding span { color: var(--color-text-secondary); font-size: 13px; }
+.holding small { color: var(--color-text-muted); font-size: 10px; }
+.planner-cta { width: 100%; border-radius: 17px; }
+.cross-day-drop { min-height:44px;border:1px dashed var(--color-bg-accent);border-radius:12px;color:var(--color-bg-accent);background:var(--color-bg-accent-soft); }
+.confirm-backdrop { position:fixed;z-index:20;inset:0;display:grid;place-items:center;padding:24px;background:rgb(0 0 0 / 42%); }
+.confirm-dialog { width:min(100%,340px);padding:22px;border-radius:20px;background:var(--color-bg-surface);box-shadow:var(--shadow-floating); }
+.confirm-dialog h2 { margin:0 0 8px;font-size:20px; }.confirm-dialog p{color:var(--color-text-secondary)}.confirm-dialog div{display:flex;justify-content:flex-end;gap:8px}.confirm-dialog button{min-width:72px;min-height:44px;border:0;border-radius:12px}.confirm-dialog .danger{color:white;background:#b93b31}
+@media (prefers-reduced-motion: reduce){.planner-row{transition:none!important}.planner-row.is-dragging{transform:none}}
+@supports(padding:max(0px)){.planner-body{padding-bottom:max(24px,env(safe-area-inset-bottom))}}
+@media (min-width: 700px) { .planner { margin-block: 24px; overflow: hidden; border-radius: 24px; box-shadow: var(--shadow-raised); } }

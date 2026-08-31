@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="旅程誌">
+  <rect width="192" height="192" rx="42" fill="#2e6d4f"/>
+  <path d="M51 49h68a10 10 0 0 1 10 10v76a8 8 0 0 1-12 7l-32-18-32 18a8 8 0 0 1-12-7V59a10 10 0 0 1 10-10Z" fill="#fff9f0"/>
+  <path d="M67 76h36M67 96h27" stroke="#e87942" stroke-width="9" stroke-linecap="round"/>
+</svg>
