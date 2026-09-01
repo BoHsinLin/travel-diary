@@ -14,8 +14,15 @@ export type DiscoveryItem = {
   startsAt?: string; endsAt?: string; venue?: string | null; address?: string | null;
   description?: string | null; disabledReason?: string;
 };
-export type DiscoveryFilters = { kind: 'all' | DiscoveryKind; query: string; region: string; verifiedOnly: boolean };
-export const initialDiscoveryFilters: DiscoveryFilters = { kind: 'all', query: '', region: 'seoul', verifiedOnly: false };
+export type DiscoveryFilters = { kind: 'all' | DiscoveryKind; query: string; region: string; verifiedOnly: boolean; startDate?: string; endDate?: string; category?: string };
+export type DiscoveryCursor = { events?: { startsAt: string; id: string }; places?: { updatedAt: string; id: string } };
+export type DiscoveryPage = { items: DiscoveryItem[]; next: DiscoveryCursor | null };
+export const initialDiscoveryFilters: DiscoveryFilters = { kind: 'all', query: '', region: 'SEOUL', verifiedOnly: false };
+
+export const discoveryRegions = [{ code: 'SEOUL', label: '首爾' }, { code: 'BUSAN', label: '釜山' }] as const;
+export function normalizeDiscoveryFilters(filters: DiscoveryFilters): DiscoveryFilters {
+  return { ...filters, region: filters.region.trim().toUpperCase(), query: filters.query.trim() };
+}
 
 const title = (row: Pick<EventRow, 'title_zh_tw' | 'title_ko' | 'title_en'>) => row.title_zh_tw || row.title_ko || row.title_en || '未命名活動';
 const placeTitle = (row: Pick<PlaceRow, 'name_zh_tw' | 'name_ko' | 'name_en'>) => row.name_zh_tw || row.name_ko || row.name_en || '未命名景點';
@@ -45,15 +52,26 @@ async function mapPlace(row: PlaceRow): Promise<DiscoveryItem> {
   return { id: row.id, kind: 'place', title: placeTitle(row), koreanName: row.name_ko, region: row.region_code, category: row.category, trust: stale(row.last_verified_at, row.trust_level), updatedAt: row.updated_at, lastVerifiedAt: row.last_verified_at, source, address: row.address_zh_tw || row.address_ko || row.address_en, description: row.description_zh_tw };
 }
 
-export async function listDiscovery(filters: DiscoveryFilters, limit = 24): Promise<DiscoveryItem[]> {
-  if (!supabase) return [];
-  const query = filters.query.trim();
-  const events = filters.kind === 'place' ? [] : await supabase.from('events').select('*').eq('publication_status', 'published').eq('lifecycle_status', 'scheduled').gte('ends_at', new Date().toISOString()).eq('region_code', filters.region).order('starts_at').limit(limit);
-  const places = filters.kind === 'event' ? [] : await supabase.from('canonical_places').select('*').eq('publication_status', 'published').eq('region_code', filters.region).order('updated_at', { ascending: false }).limit(limit);
+export async function listDiscovery(filters: DiscoveryFilters, limit = 24, cursor: DiscoveryCursor = {}): Promise<DiscoveryPage> {
+  if (!supabase) return { items: [], next: null };
+  const normalized = normalizeDiscoveryFilters(filters); const query = normalized.query;
+  let eventQuery = supabase.from('events').select('*').eq('publication_status', 'published').eq('lifecycle_status', 'scheduled').gte('ends_at', new Date().toISOString()).eq('region_code', normalized.region).order('starts_at').order('id').limit(limit);
+  let placeQuery = supabase.from('canonical_places').select('*').eq('publication_status', 'published').eq('region_code', normalized.region).order('updated_at', { ascending: false }).order('id').limit(limit);
+  if (normalized.startDate) eventQuery = eventQuery.gte('starts_at', normalized.startDate);
+  if (normalized.endDate) eventQuery = eventQuery.lte('starts_at', `${normalized.endDate}T23:59:59.999Z`);
+  if (normalized.category) { eventQuery = eventQuery.contains('tags', [normalized.category]); placeQuery = placeQuery.eq('category', normalized.category); }
+  if (query) { const safe = query.replace(/[%_,()]/g, ''); eventQuery = eventQuery.or(`title_zh_tw.ilike.%${safe}%,title_ko.ilike.%${safe}%,title_en.ilike.%${safe}%`); placeQuery = placeQuery.or(`name_zh_tw.ilike.%${safe}%,name_ko.ilike.%${safe}%,name_en.ilike.%${safe}%`); }
+  if (cursor.events) eventQuery = eventQuery.or(`starts_at.gt.${cursor.events.startsAt},and(starts_at.eq.${cursor.events.startsAt},id.gt.${cursor.events.id})`);
+  if (cursor.places) placeQuery = placeQuery.or(`updated_at.lt.${cursor.places.updatedAt},and(updated_at.eq.${cursor.places.updatedAt},id.gt.${cursor.places.id})`);
+  const events = normalized.kind === 'place' ? [] : await eventQuery;
+  const places = normalized.kind === 'event' ? [] : await placeQuery;
   if ('error' in events && events.error) throw events.error;
   if ('error' in places && places.error) throw places.error;
-  const mapped = await Promise.all([...(Array.isArray(events) ? [] : events.data || []).map(mapEvent), ...(Array.isArray(places) ? [] : places.data || []).map(mapPlace)]);
-  return mapped.filter((item) => (!filters.verifiedOnly || item.trust === 'official' || item.trust === 'verified') && (!query || `${item.title}${item.koreanName}${item.category}${item.region}`.toLowerCase().includes(query.toLowerCase())));
+  const eventRows = Array.isArray(events) ? [] : events.data || []; const placeRows = Array.isArray(places) ? [] : places.data || [];
+  const mapped = await Promise.all([...eventRows.map(mapEvent), ...placeRows.map(mapPlace)]);
+  const items = mapped.filter((item) => !normalized.verifiedOnly || item.trust === 'official' || item.trust === 'verified');
+  const lastEvent = eventRows.at(-1); const lastPlace = placeRows.at(-1);
+  return { items, next: (eventRows.length === limit || placeRows.length === limit) ? { events: lastEvent ? { startsAt: lastEvent.starts_at, id: lastEvent.id } : undefined, places: lastPlace ? { updatedAt: lastPlace.updated_at, id: lastPlace.id } : undefined } : null };
 }
 
 export async function getDiscovery(kind: DiscoveryKind, id: string): Promise<DiscoveryItem | null> {
