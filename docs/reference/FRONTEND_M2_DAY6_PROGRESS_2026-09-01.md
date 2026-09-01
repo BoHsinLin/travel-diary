@@ -32,6 +32,16 @@
 - Reviewer dialog 補上失敗提示與重試、initial focus、Tab focus trap、Escape 關閉與觸發按鈕 focus return；佇列載入失敗也可重試。
 - 新增 cursor stream 耗盡回歸測試；靜態驗證已通過。此紀錄仍為「進行中」，未宣稱完成 browser／RLS／正式站驗收。
 
+## 2026-09-01 15:10:00 +08:00 修正紀錄
+
+- Reviewer RPC 成功後的訊息改為「審核動作已送出」，不在佇列 refetch 尚未確認成功前宣稱畫面已更新。
+
+## 2026-09-01 15:13:00 +08:00 測試紀錄
+
+- 新增 M2 Detail Event report 成功流程測試，以及 Reviewer RPC 失敗後 retry、initial focus、Escape 關閉與觸發點 focus return 測試。
+- `pnpm test --run`：11 test files／36 tests 通過；`pnpm typecheck`、`pnpm build` 與 `git diff --check` 通過。
+- 尚缺 local fixture 角色登入後的瀏覽器流程、五個 viewport、axe、screen reader、200% reflow、safe-area、reduced-motion 與 RLS smoke；因此交付維持進行中，不改標 `REVIEW`。
+
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。
