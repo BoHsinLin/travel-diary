@@ -42,6 +42,11 @@
 - `pnpm test --run`：11 test files／36 tests 通過；`pnpm typecheck`、`pnpm build` 與 `git diff --check` 通過。
 - 尚缺 local fixture 角色登入後的瀏覽器流程、五個 viewport、axe、screen reader、200% reflow、safe-area、reduced-motion 與 RLS smoke；因此交付維持進行中，不改標 `REVIEW`。
 
+## 2026-09-01 15:16:00 +08:00 Browser 驗收狀態
+
+- 已依瀏覽器驗收流程嘗試開啟 `http://127.0.0.1:5175/trips/trip-001/discover` 與目前監聽的 `http://127.0.0.1:5173/trips/trip-001/discover`。
+- 驗收瀏覽器均回報 `ERR_CONNECTION_REFUSED`；因此未產出任何無效截圖，也未將 Explore／Detail／Add／Reviewer／Notifications 標示為 browser passed。
+
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。
