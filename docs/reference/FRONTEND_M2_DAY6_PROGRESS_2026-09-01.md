@@ -25,6 +25,13 @@
 - 尚未完成 320／375／430／768／1440 的 Figma 同尺寸截圖、axe、鍵盤／screen reader、200% reflow、safe-area、reduced-motion 實測。
 - Reviewer Queue 的真實 reviewer action、Event Add 的成功／PT409，以及 source-change notification 的實際資料需在 local M2 fixture 就緒後驗收。
 
+## 2026-09-01 14:45:00 +08:00 修正紀錄
+
+- Explore 的 Event／Place cursor 現在分別保存最後一筆排序鍵與 `exhausted` 狀態；任一 stream 先耗盡後，不會在「載入更多」時從第一頁重複查詢。
+- `verifiedOnly` 改為對兩個資料表皆使用 `trust_level in (official, verified)` 的 server-side 查詢。畫面上的 `stale` 是顯示層依最後驗證時間推導的狀態，不再作為 verified 篩選條件。
+- Reviewer dialog 補上失敗提示與重試、initial focus、Tab focus trap、Escape 關閉與觸發按鈕 focus return；佇列載入失敗也可重試。
+- 新增 cursor stream 耗盡回歸測試；靜態驗證已通過。此紀錄仍為「進行中」，未宣稱完成 browser／RLS／正式站驗收。
+
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。
