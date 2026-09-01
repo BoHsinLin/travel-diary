@@ -20,6 +20,10 @@ const PeoplePage = lazy(() => import('../features/trips/ManagementPages').then((
 const SettingsPage = lazy(() => import('../features/trips/ManagementPages').then((module) => ({ default: module.SettingsPage })));
 const BudgetPage = lazy(() => import('../features/trips/ManagementPages').then((module) => ({ default: module.BudgetPage })));
 const NotFoundPage = lazy(() => import('../features/system/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
+const DiscoveryExplorePage = lazy(() => import('../features/discovery/DiscoveryPages').then((module) => ({ default: module.DiscoveryExplorePage })));
+const DiscoveryDetailPage = lazy(() => import('../features/discovery/DiscoveryPages').then((module) => ({ default: module.DiscoveryDetailPage })));
+const AddEventPage = lazy(() => import('../features/discovery/DiscoveryPages').then((module) => ({ default: module.AddEventPage })));
+const ReviewerQueuePage = lazy(() => import('../features/discovery/DiscoveryPages').then((module) => ({ default: module.ReviewerQueuePage })));
 
 export function App() {
   return <><Suspense fallback={<main className="route-loading" aria-busy="true">正在載入頁面…</main>}><Routes>
@@ -34,7 +38,11 @@ export function App() {
         <Route path="/trips/:tripId/budget" element={<BudgetPage />} />
         <Route path="/trips/:tripId/today" element={<TodayPage />} />
         <Route path="/trips/:tripId/plan" element={<PlannerPage />} />
-        <Route path="/trips/:tripId/places" element={<ExplorePage />} />
+        <Route path="/trips/:tripId/places" element={<Navigate replace to="../discover" />} />
+        <Route path="/trips/:tripId/discover" element={<DiscoveryExplorePage />} />
+        <Route path="/trips/:tripId/discover/:kind/:id" element={<DiscoveryDetailPage />} />
+        <Route path="/trips/:tripId/discover/event/:id/add" element={<AddEventPage />} />
+        <Route path="/reviewer-queue" element={<ReviewerQueuePage />} />
         <Route path="/trips/:tripId/places/:placeId" element={<PlaceDetailsPage />} />
         <Route path="/trips/:tripId/plan/add/:placeId" element={<AddPlacePage />} />
         <Route path="/trips/:tripId/plan/conflict/:placeId" element={<ConflictPage />} />
