@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { axe } from 'vitest-axe';
 
 const { addEventMock, queryMock, reportEventMock, reviewActionMock, tripDaysMock } = vi.hoisted(() => ({ addEventMock: vi.fn(), queryMock: vi.fn(), reportEventMock: vi.fn(), reviewActionMock: vi.fn(), tripDaysMock: vi.fn() }));
 
@@ -27,7 +28,7 @@ describe('M2 discovery interactions', () => {
     await userEvent.click(screen.getByRole('button', { name: '回報資料問題' }));
     await userEvent.type(screen.getByRole('textbox', { name: '問題說明' }), '官方時間有誤');
     await userEvent.click(screen.getByRole('button', { name: '送交審核' }));
-    await waitFor(() => expect(reportEventMock).toHaveBeenCalledWith('event-1', 'incorrect_information', '官方時間有誤', 'owner-id'));
+    await waitFor(() => expect(reportEventMock).toHaveBeenCalledWith('event-1', 'incorrect', '官方時間有誤', 'owner-id'));
     expect(screen.getByRole('status')).toHaveTextContent('已送交審核');
   });
 
@@ -43,6 +44,13 @@ describe('M2 discovery interactions', () => {
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it('has no detectable Explore accessibility violations', async () => {
+    queryMock.mockReturnValue({ isLoading: false, isError: false, isFetching: false, data: { items: [event], next: null }, refetch: vi.fn() });
+    const { container } = render(<MemoryRouter initialEntries={['/trips/trip-001/discover']}><Routes><Route path="/trips/:tripId/discover" element={<DiscoveryExplorePage/>}/></Routes></MemoryRouter>);
+    const result = await axe(container, { rules: { 'color-contrast': { enabled: false } } });
+    expect(result.violations).toHaveLength(0);
   });
 
   it('loads the second Explore page and appends only unseen items', async () => {

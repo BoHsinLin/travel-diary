@@ -1,4 +1,4 @@
-# M2 Day 6 前端交付紀錄（進行中）
+# M2 Day 6 前端交付紀錄（REVIEW）
 
 - 時間戳：2026-09-01 13:41:42 +08:00（Asia/Taipei）
 - 指派來源：`FRONTEND_MANAGER.md` 的 `M2 DAY 6 ACTIVE`。
@@ -76,3 +76,14 @@
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。
+
+## 2026-09-02 10:14:16 +08:00 REVIEW 交付
+
+- 新增 local-only `supabase/fixtures/m2_browser_evidence.sql`，提供 published Event／Place、pending review、Owner notification、`data_reviewer`／`platform_admin` 可登入 fixture；無金鑰、未使用 service role、未修改 production。
+- 真實 browser smoke 完成 Owner Explore 五尺寸、Detail、report、Add success／PT409、notification acknowledge、Owner 403，以及 Reviewer approve → publish。
+- 發現並修正 report category 從非法的 `incorrect_information` 改為 DB constraint 允許的 `incorrect`，測試同步鎖定 contract。
+- DB 結果：report 1、Add item 1、notification acknowledged=true、reviewed Event=published、approve／publish audit=2。
+- 無障礙：Filter／Reviewer keyboard focus flow 通過，720×450 200% 等效 reflow 無 overflow，safe-area／reduced-motion CSS contract 存在，accessibility tree 語意已核對，新增 `vitest-axe` Explore 0 violations。
+- 靜態回歸：`pnpm typecheck`、13 files／46 tests、production build（2035 modules）、`pnpm check:pwa-cache` 全數通過。
+- 證據：[2026-09-02 M2 Browser Evidence](../evidence/m2-frontend-audit-2026-09-02/EVIDENCE.md)，共 12 組檔名／16 張 PNG。
+- 工具限制：browser-injected axe 被唯讀 sandbox 拒絕，實體 NVDA／Narrator 無自動化輸出通道；未將這兩項偽寫為通過，完整紀錄於 evidence index。
