@@ -31,6 +31,7 @@ export function App() {
     <Route path="/login" element={<LoginPage />} />
     <Route element={<ProtectedRoute />}>
       <Route path="/trips" element={<TripListPage />} />
+      <Route path="/reviewer-queue" element={<ReviewerQueuePage />} />
       <Route element={<TripLayout />}>
         <Route path="/trips/:tripId/overview" element={<TripOverviewPage />} />
         <Route path="/trips/:tripId/people" element={<PeoplePage />} />
@@ -42,7 +43,6 @@ export function App() {
         <Route path="/trips/:tripId/discover" element={<DiscoveryExplorePage />} />
         <Route path="/trips/:tripId/discover/:kind/:id" element={<DiscoveryDetailPage />} />
         <Route path="/trips/:tripId/discover/event/:id/add" element={<AddEventPage />} />
-        <Route path="/reviewer-queue" element={<ReviewerQueuePage />} />
         <Route path="/trips/:tripId/places/:placeId" element={<PlaceDetailsPage />} />
         <Route path="/trips/:tripId/plan/add/:placeId" element={<AddPlacePage />} />
         <Route path="/trips/:tripId/plan/conflict/:placeId" element={<ConflictPage />} />

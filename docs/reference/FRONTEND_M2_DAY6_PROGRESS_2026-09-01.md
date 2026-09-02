@@ -66,6 +66,13 @@
 - Reviewer test 覆蓋 pending approve、refetch 回 approved、再 publish；通知 acknowledge 補失敗 alert 與 retry 測試。
 - 完整瀏覽器／角色／RWD／a11y 實證仍未完成，交付狀態維持進行中。
 
+## 2026-09-02 09:50:00 +08:00 Browser partial evidence
+
+- Owner 與 Viewer 已透過 local Magic Link 登入；Owner／Viewer Explore 與 Reviewer 403 boundary 皆完成 browser smoke。
+- Owner Explore 在 320／375／430／768／1440 無水平 overflow、console error／warning=0；Filter dialog focus/Escape/focus return 實測通過。
+- 修正全域 `/reviewer-queue` 被 TripLayout 包住造成的 `/trips/undefined/...` 側欄連結。
+- 證據索引：[M2 2026-09-02 evidence](../evidence/m2-frontend-audit-2026-09-02/EVIDENCE.md)。Reviewer seed、可保存 screenshot、browser axe／screen reader／200%／safe-area／reduced-motion 與具資料的 mutation smoke 仍缺，故不標記 `REVIEW`。
+
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。
