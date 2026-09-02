@@ -1,8 +1,8 @@
 # M2 Day 6 Browser Evidence Index - REVIEW
 
-- 時間戳：2026-09-02 10:14:16 +08:00（Asia/Taipei）
+- 時間戳：2026-09-02 11:15:32 +08:00（Asia/Taipei）
 - 目標：本機 `http://127.0.0.1:5173`、local Supabase `http://127.0.0.1:55431`。
-- 帳號：local Magic Link 的 `owner@example.com`、`admin@example.com`；未使用 service role 或 production 環境。
+- 帳號：local Magic Link 的 `owner@example.com`、`platform-admin@example.com`；未使用 service role 或 production 環境。
 - Fixture：`supabase/fixtures/m2_browser_evidence.sql`，僅能套用於 local stack，無金鑰、不屬於 production migration。
 
 ## 已驗證
@@ -13,9 +13,9 @@
 | Owner Explore | 320×844、375×844、430×932、768×1024、1440×900 無水平 overflow，均為 2 張 published cards、1 個 selected tab。 |
 | Owner Filter dialog | 開啟後焦點在區域 select；Escape 關閉後焦點回到篩選按鈕。 |
 | Event Detail／report | 真實 published Event 可讀；修正 report category contract 後實際 INSERT 成功且 UI 顯示「已送交審核」。 |
-| Add Event | Day 2 10:00 實際命中 `PT409`，不覆寫原行程；Day 1 10:00 實際新增成功。 |
+| Add Event | Day 2 10:00 實際命中 `PT409`；重新擷取的 conflict 畫面明確顯示「時間發生衝突」、不覆寫說明與查看行程 action；Day 1 10:00 實際新增成功。 |
 | Change Notification | Owner 看到 time change notice，按「知道了」後資料庫 `acknowledged_at` 非 null。 |
-| Reviewer | `admin@example.com` 可看 pending row，實際完成 approve → approved → publish；Event 為 published，audit 有 2 筆。 |
+| Reviewer | `platform-admin@example.com` 可看 pending row，實際完成 approve → approved → publish；重新擷取的 published 畫面顯示「已發布，項目已從待審佇列移除。」且沒有可用發布按鈕；Event 為 published，audit 有 2 筆。 |
 | Owner Reviewer Queue | 375px 顯示 403 且無管理 action；console error／warning 為 0。 |
 | Reflow／safe area／motion | 720×450 作為 1440px 的 200% reflow 等效寬度，`scrollWidth <= clientWidth`；CSS 實際含 safe-area 與 reduced-motion media rules。 |
 
@@ -33,6 +33,12 @@
 - `10-reviewer-published-1440.png`
 - `11-reviewer-200pct-equivalent-720x450.png`
 - `12-owner-reviewer-403-375.png`
+
+## 2026-09-02 11:10:24 +08:00 Replacement evidence
+
+- 已依最終驗收要求只替換 `06-owner-add-conflict-375.png` 與 `10-reviewer-published-1440.png`；其他已接受 artifacts 未重做。
+- Conflict screenshot 於 RPC settled 後擷取，DOM alert 為 `時間發生衝突`／`不會覆寫既有行程。請改時間或查看行程。`。
+- Published screenshot 於 RPC 與 `refetch()` 成功後擷取，DOM status 為 `已發布，項目已從待審佇列移除。`，`發布` button count 為 0。
 
 ## Accessibility and limitations
 

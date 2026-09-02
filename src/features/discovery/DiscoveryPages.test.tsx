@@ -92,7 +92,7 @@ describe('M2 discovery interactions', () => {
 
   it('moves a pending review through approve, refetch, and publish', async () => {
     let queueRows = [{ id: 'pending', event_id: 'event-pending', place_id: null, priority: 1, risk_flags: [], status: 'pending' }];
-    const refetch = vi.fn().mockImplementation(async () => { queueRows = [{ id: 'approved', event_id: 'event-pending', place_id: null, priority: 1, risk_flags: [], status: 'approved' }]; return { data: queueRows }; });
+    const refetch = vi.fn().mockImplementation(async () => { queueRows = queueRows[0]?.status === 'pending' ? [{ id: 'approved', event_id: 'event-pending', place_id: null, priority: 1, risk_flags: [], status: 'approved' }] : []; return { data: queueRows }; });
     queryMock.mockImplementation(({ queryKey }: { queryKey: string[] }) => queryKey[0] === 'platform-role'
       ? { isLoading: false, data: 'reviewer' }
       : { isLoading: false, isError: false, data: queueRows, refetch });
@@ -108,6 +108,8 @@ describe('M2 discovery interactions', () => {
     await userEvent.click(publish);
     await userEvent.click(screen.getByRole('button', { name: '確認' }));
     await waitFor(() => expect(reviewActionMock).toHaveBeenLastCalledWith('event-pending', 'event', 'publish', ''));
+    expect(await screen.findByRole('status')).toHaveTextContent('已發布，項目已從待審佇列移除。');
+    expect(screen.queryByRole('button', { name: '發布' })).not.toBeInTheDocument();
   });
 
   it('keeps Reviewer dialog open with a retry state when the RPC fails', async () => {
