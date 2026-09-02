@@ -47,6 +47,12 @@
 - 已依瀏覽器驗收流程嘗試開啟 `http://127.0.0.1:5175/trips/trip-001/discover` 與目前監聽的 `http://127.0.0.1:5173/trips/trip-001/discover`。
 - 驗收瀏覽器均回報 `ERR_CONNECTION_REFUSED`；因此未產出任何無效截圖，也未將 Explore／Detail／Add／Reviewer／Notifications 標示為 browser passed。
 
+## 2026-09-02 09:00:00 +08:00 修正紀錄
+
+- Explore 改為「全部／活動／景點」三個明確 tabs，任一時刻僅有一個 `aria-selected=true`。
+- Filter dialog 採草稿值，新增套用與取消，並具備 initial focus、Tab focus trap、Escape close 與觸發按鈕 focus return。
+- 新增 Explore tab／filter keyboard、Add `PT409` conflict、non-reviewer `403` regression tests。交付仍未標示 `REVIEW`，等待完整瀏覽器與角色驗收。
+
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。
