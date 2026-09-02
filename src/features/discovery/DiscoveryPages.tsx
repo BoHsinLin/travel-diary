@@ -19,7 +19,7 @@ function DiscoveryCard({ item, tripId }: { item: DiscoveryItem; tripId: string }
 export function DiscoveryExplorePage() {
   const { tripId = '' } = useParams(); const [filters, setFilters] = useState<DiscoveryFilters>(initialDiscoveryFilters); const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(initialDiscoveryFilters); const [cursor, setCursor] = useState<Parameters<typeof listDiscovery>[2]>({}); const [items, setItems] = useState<DiscoveryItem[]>([]); const [filterOpen, setFilterOpen] = useState(false); const filterButton = useRef<HTMLButtonElement>(null); const filterDialog = useRef<HTMLElement>(null);
   const result = useQuery({ queryKey: ['discovery', filters, cursor], queryFn: () => listDiscovery(filters, 24, cursor) });
-  useEffect(() => { if (result.data) setItems(current => cursor && (cursor.events || cursor.places) ? [...current, ...result.data.items] : result.data.items); }, [result.data, cursor]);
+  useEffect(() => { if (result.data) setItems(current => { if (!cursor || (!cursor.events && !cursor.places)) return result.data.items; const seen = new Set(current.map(item => `${item.kind}:${item.id}`)); return [...current, ...result.data.items.filter(item => !seen.has(`${item.kind}:${item.id}`))]; }); }, [result.data, cursor]);
   useEffect(() => { window.requestAnimationFrame(() => { if (filterOpen) filterDialog.current?.querySelector<HTMLElement>('select, input, button')?.focus(); else filterButton.current?.focus(); }); }, [filterOpen]);
   const reset = (next: DiscoveryFilters) => { setItems([]); setCursor({}); setFilters(next); };
   const closeFilters = () => setFilterOpen(false);

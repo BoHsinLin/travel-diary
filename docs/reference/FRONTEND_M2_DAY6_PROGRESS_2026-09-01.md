@@ -53,6 +53,12 @@
 - Filter dialog 採草稿值，新增套用與取消，並具備 initial focus、Tab focus trap、Escape close 與觸發按鈕 focus return。
 - 新增 Explore tab／filter keyboard、Add `PT409` conflict、non-reviewer `403` regression tests。交付仍未標示 `REVIEW`，等待完整瀏覽器與角色驗收。
 
+## 2026-09-02 09:25:00 +08:00 核心流程測試紀錄
+
+- 新增 Explore load-more cursor、Add RPC success、Reviewer approved publish、source-change notification acknowledge 行為測試。
+- Explore 分頁 append 改為以 `kind:id` 去重，避免資料源重疊時出現重複 React key 或卡片。
+- 完整 browser／角色與 RLS 證據尚未具備，故此文件仍維持進行中，不標記 `REVIEW`。
+
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。

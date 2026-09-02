@@ -45,6 +45,15 @@ describe('M2 discovery interactions', () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
+  it('renders the next-page control and advances the Explore cursor when loading more', async () => {
+    const next = { events: { startsAt: '2026-09-03T10:00:00Z', id: 'event-1', exhausted: false }, places: { updatedAt: '2026-09-03T10:00:00Z', id: 'place-1', exhausted: false } };
+    queryMock.mockReturnValue({ isLoading: false, isError: false, isFetching: false, data: { items: [event], next }, refetch: vi.fn() });
+    render(<MemoryRouter initialEntries={['/trips/trip-001/discover']}><Routes><Route path="/trips/:tripId/discover" element={<DiscoveryExplorePage/>}/></Routes></MemoryRouter>);
+    expect(await screen.findByText('首爾燈節')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: '載入更多' }));
+    await waitFor(() => expect(queryMock.mock.calls.some(([options]) => options.queryKey[2]?.events?.id === 'event-1')).toBe(true));
+  });
+
   it('preserves the itinerary and shows the PT409 conflict state when adding an event', async () => {
     tripDaysMock.mockReturnValue({ data: [{ id: 'day-1', sortOrder: 1, date: '2026-09-02' }] });
     addEventMock.mockRejectedValueOnce({ code: 'PT409', hint: 'ITINERARY_TIME_CONFLICT' });
@@ -54,10 +63,33 @@ describe('M2 discovery interactions', () => {
     expect(screen.getByText('不會覆寫既有行程。請改時間或查看行程。')).toBeVisible();
   });
 
+  it('shows success after an event is added through the RPC', async () => {
+    tripDaysMock.mockReturnValue({ data: [{ id: 'day-1', sortOrder: 1, date: '2026-09-02' }] });
+    addEventMock.mockResolvedValueOnce(undefined);
+    render(<MemoryRouter initialEntries={['/trips/trip-001/discover/event/event-1/add']}><Routes><Route path="/trips/:tripId/discover/event/:id/add" element={<AddEventPage/>}/></Routes></MemoryRouter>);
+    await userEvent.click(screen.getByRole('button', { name: '加入行程' }));
+    expect(await screen.findByText('已加入行程')).toBeVisible();
+    expect(addEventMock).toHaveBeenCalledWith('event-1', 'day-1', expect.any(String), 60, expect.any(String), expect.any(String));
+  });
+
   it('shows a 403 state instead of the review queue for a non-reviewer', () => {
     queryMock.mockReturnValue({ isLoading: false, data: null });
     render(<MemoryRouter><ReviewerQueuePage/></MemoryRouter>);
     expect(screen.getByRole('alert')).toHaveTextContent('403：你沒有資料審核權限。');
+  });
+
+  it('allows a reviewer to submit publish only for an approved queue row', async () => {
+    const refetch = vi.fn().mockResolvedValue({ data: [] });
+    queryMock.mockImplementation(({ queryKey }: { queryKey: string[] }) => queryKey[0] === 'platform-role'
+      ? { isLoading: false, data: 'reviewer' }
+      : { isLoading: false, isError: false, data: [{ id: 'pending', event_id: 'event-pending', place_id: null, priority: 1, risk_flags: [], status: 'pending' }, { id: 'approved', event_id: 'event-approved', place_id: null, priority: 1, risk_flags: [], status: 'approved' }], refetch });
+    reviewActionMock.mockResolvedValue(undefined);
+    render(<MemoryRouter><ReviewerQueuePage/></MemoryRouter>);
+    const publish = screen.getAllByRole('button', { name: '發布' }).find(button => !button.hasAttribute('disabled'))!;
+    expect(publish).toBeEnabled();
+    await userEvent.click(publish);
+    await userEvent.click(screen.getByRole('button', { name: '確認' }));
+    await waitFor(() => expect(reviewActionMock).toHaveBeenCalledWith('event-approved', 'event', 'publish', ''));
   });
 
   it('keeps Reviewer dialog open with a retry state when the RPC fails', async () => {
