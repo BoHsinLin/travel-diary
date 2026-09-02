@@ -45,13 +45,17 @@ describe('M2 discovery interactions', () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it('renders the next-page control and advances the Explore cursor when loading more', async () => {
+  it('loads the second Explore page and appends only unseen items', async () => {
     const next = { events: { startsAt: '2026-09-03T10:00:00Z', id: 'event-1', exhausted: false }, places: { updatedAt: '2026-09-03T10:00:00Z', id: 'place-1', exhausted: false } };
-    queryMock.mockReturnValue({ isLoading: false, isError: false, isFetching: false, data: { items: [event], next }, refetch: vi.fn() });
+    const place = { ...event, id: 'place-2', kind: 'place' as const, title: '北村韓屋村', koreanName: '북촌한옥마을' };
+    const firstPage = { items: [event], next }; const secondPage = { items: [event, place], next: null }; const refetch = vi.fn();
+    queryMock.mockImplementation(({ queryKey }: { queryKey: [string, unknown, { events?: unknown }] }) => ({ isLoading: false, isError: false, isFetching: false, data: queryKey[2]?.events ? secondPage : firstPage, refetch }));
     render(<MemoryRouter initialEntries={['/trips/trip-001/discover']}><Routes><Route path="/trips/:tripId/discover" element={<DiscoveryExplorePage/>}/></Routes></MemoryRouter>);
     expect(await screen.findByText('首爾燈節')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: '載入更多' }));
     await waitFor(() => expect(queryMock.mock.calls.some(([options]) => options.queryKey[2]?.events?.id === 'event-1')).toBe(true));
+    expect(await screen.findByText('北村韓屋村')).toBeVisible();
+    expect(screen.getAllByText('首爾燈節')).toHaveLength(1);
   });
 
   it('preserves the itinerary and shows the PT409 conflict state when adding an event', async () => {
@@ -78,18 +82,24 @@ describe('M2 discovery interactions', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('403：你沒有資料審核權限。');
   });
 
-  it('allows a reviewer to submit publish only for an approved queue row', async () => {
-    const refetch = vi.fn().mockResolvedValue({ data: [] });
+  it('moves a pending review through approve, refetch, and publish', async () => {
+    let queueRows = [{ id: 'pending', event_id: 'event-pending', place_id: null, priority: 1, risk_flags: [], status: 'pending' }];
+    const refetch = vi.fn().mockImplementation(async () => { queueRows = [{ id: 'approved', event_id: 'event-pending', place_id: null, priority: 1, risk_flags: [], status: 'approved' }]; return { data: queueRows }; });
     queryMock.mockImplementation(({ queryKey }: { queryKey: string[] }) => queryKey[0] === 'platform-role'
       ? { isLoading: false, data: 'reviewer' }
-      : { isLoading: false, isError: false, data: [{ id: 'pending', event_id: 'event-pending', place_id: null, priority: 1, risk_flags: [], status: 'pending' }, { id: 'approved', event_id: 'event-approved', place_id: null, priority: 1, risk_flags: [], status: 'approved' }], refetch });
+      : { isLoading: false, isError: false, data: queueRows, refetch });
     reviewActionMock.mockResolvedValue(undefined);
-    render(<MemoryRouter><ReviewerQueuePage/></MemoryRouter>);
-    const publish = screen.getAllByRole('button', { name: '發布' }).find(button => !button.hasAttribute('disabled'))!;
+    const view = render(<MemoryRouter><ReviewerQueuePage/></MemoryRouter>);
+    await userEvent.click(screen.getByRole('button', { name: '核准' }));
+    await userEvent.click(screen.getByRole('button', { name: '確認' }));
+    await waitFor(() => expect(reviewActionMock).toHaveBeenCalledWith('event-pending', 'event', 'approve', ''));
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
+    view.rerender(<MemoryRouter><ReviewerQueuePage/></MemoryRouter>);
+    const publish = screen.getByRole('button', { name: '發布' });
     expect(publish).toBeEnabled();
     await userEvent.click(publish);
     await userEvent.click(screen.getByRole('button', { name: '確認' }));
-    await waitFor(() => expect(reviewActionMock).toHaveBeenCalledWith('event-approved', 'event', 'publish', ''));
+    await waitFor(() => expect(reviewActionMock).toHaveBeenLastCalledWith('event-pending', 'event', 'publish', ''));
   });
 
   it('keeps Reviewer dialog open with a retry state when the RPC fails', async () => {

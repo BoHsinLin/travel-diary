@@ -59,6 +59,13 @@
 - Explore 分頁 append 改為以 `kind:id` 去重，避免資料源重疊時出現重複 React key 或卡片。
 - 完整 browser／角色與 RLS 證據尚未具備，故此文件仍維持進行中，不標記 `REVIEW`。
 
+## 2026-09-02 09:35:00 +08:00 真實行為補正
+
+- `listDiscovery` query contract test 驗證 published、scheduled、region、date、category、trust、search 均在 server query 的 limit 前形成。
+- Explore 第二頁測試驗證 cursor 後確實 append 新項目，並忽略重複 `kind:id`。
+- Reviewer test 覆蓋 pending approve、refetch 回 approved、再 publish；通知 acknowledge 補失敗 alert 與 retry 測試。
+- 完整瀏覽器／角色／RWD／a11y 實證仍未完成，交付狀態維持進行中。
+
 ## 已知 contract 缺口
 
 `data_reports` 的 generated DTO 只有 required `event_id`，無 `place_id` 或 entity-kind discriminator。因此 Place Detail 不會偽造提交 report；若產品需支援 Place report，須由後端提供明確的擴充 contract，再接續實作。
