@@ -8,6 +8,7 @@ import { useTripData } from '../../app/TripDataContext';
 import { useTripDays } from '../trips/queries';
 import { nextAppendSortKey, toZonedIso } from '../places/itineraryPlanning';
 import { addEventToItinerary, currentPlatformRole, discoveryRegions, getDiscovery, initialDiscoveryFilters, listDiscovery, reportEvent, reviewAction, type DiscoveryFilters, type DiscoveryItem, type DiscoveryKind } from './discoveryRepository';
+import { listReviewQueue } from './reviewQueueRepository';
 import './discovery.css';
 
 const trustLabel: Record<DiscoveryItem['trust'], string> = { official: '官方來源', verified: '已驗證', unverified: '未驗證', stale: '資料較舊' };
@@ -43,7 +44,7 @@ export function AddEventPage() {
 }
 
 export function ReviewerQueuePage() {
-  const role = useQuery({ queryKey: ['platform-role'], queryFn: currentPlatformRole }); const [selected, setSelected] = useState<{ id: string; kind: DiscoveryKind; decision: 'approve' | 'request_changes' | 'reject' | 'publish' } | null>(null); const [note, setNote] = useState(''); const [saving, setSaving] = useState(false); const [failure, setFailure] = useState(false); const [success, setSuccess] = useState(''); const [publishedIds, setPublishedIds] = useState<Set<string>>(() => new Set()); const triggerRef = useRef<HTMLButtonElement>(null); const confirmRef = useRef<HTMLButtonElement>(null); const dialogRef = useRef<HTMLElement>(null); const queue = useQuery({ queryKey: ['review-queue'], enabled: Boolean(role.data), queryFn: async () => { const { supabase } = await import('../../lib/supabase'); if (!supabase) return []; const { data, error } = await supabase.from('data_review_queue').select('*').in('status', ['pending', 'needs_changes', 'approved']).order('priority', { ascending: false }); if (error) throw error; return data; } });
+  const role = useQuery({ queryKey: ['platform-role'], queryFn: currentPlatformRole }); const [selected, setSelected] = useState<{ id: string; kind: DiscoveryKind; decision: 'approve' | 'request_changes' | 'reject' | 'publish' } | null>(null); const [note, setNote] = useState(''); const [saving, setSaving] = useState(false); const [failure, setFailure] = useState(false); const [success, setSuccess] = useState(''); const [publishedIds, setPublishedIds] = useState<Set<string>>(() => new Set()); const triggerRef = useRef<HTMLButtonElement>(null); const confirmRef = useRef<HTMLButtonElement>(null); const dialogRef = useRef<HTMLElement>(null); const queue = useQuery({ queryKey: ['review-queue'], enabled: Boolean(role.data), queryFn: listReviewQueue });
   useEffect(() => { if (selected) window.requestAnimationFrame(() => confirmRef.current?.focus()); }, [selected]);
   if (role.isLoading) return <main className="discovery-page"><p className="discovery-state">正在確認權限…</p></main>;
   if (!role.data) return <main className="discovery-page"><PageHeader title="審核佇列" back="/trips"/><p className="discovery-state is-error" role="alert">403：你沒有資料審核權限。</p></main>;

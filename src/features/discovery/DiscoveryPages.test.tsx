@@ -4,13 +4,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 
-const { addEventMock, queryMock, reportEventMock, reviewActionMock, tripDaysMock } = vi.hoisted(() => ({ addEventMock: vi.fn(), queryMock: vi.fn(), reportEventMock: vi.fn(), reviewActionMock: vi.fn(), tripDaysMock: vi.fn() }));
+const { addEventMock, listReviewQueueMock, queryMock, reportEventMock, reviewActionMock, tripDaysMock } = vi.hoisted(() => ({ addEventMock: vi.fn(), listReviewQueueMock: vi.fn(), queryMock: vi.fn(), reportEventMock: vi.fn(), reviewActionMock: vi.fn(), tripDaysMock: vi.fn() }));
 
 vi.mock('@tanstack/react-query', () => ({ useQuery: queryMock, useQueryClient: () => ({ invalidateQueries: vi.fn() }) }));
 vi.mock('../../app/AuthContext', () => ({ useAuth: () => ({ user: { id: 'owner-id' } }) }));
 vi.mock('../../app/TripDataContext', () => ({ useTripData: () => ({ days: {} }) }));
 vi.mock('../trips/queries', () => ({ useTripDays: (...args: unknown[]) => tripDaysMock(...args) }));
 vi.mock('./discoveryRepository', async (importOriginal) => ({ ...(await importOriginal<typeof import('./discoveryRepository')>()), addEventToItinerary: addEventMock, reportEvent: reportEventMock, reviewAction: reviewActionMock }));
+vi.mock('./reviewQueueRepository', () => ({ listReviewQueue: listReviewQueueMock }));
 
 import { AddEventPage, DiscoveryDetailPage, DiscoveryExplorePage, ReviewerQueuePage } from './DiscoveryPages';
 
@@ -18,7 +19,7 @@ const event = { id: 'event-1', kind: 'event' as const, title: '首爾燈節', ko
 
 describe('M2 discovery interactions', () => {
   beforeEach(() => {
-    addEventMock.mockReset(); queryMock.mockReset(); reportEventMock.mockReset(); reviewActionMock.mockReset(); tripDaysMock.mockReset(); tripDaysMock.mockReturnValue({ data: [] });
+    addEventMock.mockReset(); listReviewQueueMock.mockReset(); queryMock.mockReset(); reportEventMock.mockReset(); reviewActionMock.mockReset(); tripDaysMock.mockReset(); tripDaysMock.mockReturnValue({ data: [] });
   });
 
   it('submits an Event report and shows a completion state', async () => {
@@ -88,6 +89,15 @@ describe('M2 discovery interactions', () => {
     queryMock.mockReturnValue({ isLoading: false, data: null });
     render(<MemoryRouter><ReviewerQueuePage/></MemoryRouter>);
     expect(screen.getByRole('alert')).toHaveTextContent('403：你沒有資料審核權限。');
+  });
+
+  it('uses the review queue repository adapter instead of a page-level Supabase query', () => {
+    queryMock.mockImplementation(({ queryKey }: { queryKey: string[] }) => queryKey[0] === 'platform-role'
+      ? { isLoading: false, data: 'reviewer', isError: false, refetch: vi.fn() }
+      : { isLoading: false, data: [], isError: false, refetch: vi.fn() });
+    render(<MemoryRouter><ReviewerQueuePage/></MemoryRouter>);
+    const queueCall = queryMock.mock.calls.map(([options]) => options).find((options) => options.queryKey[0] === 'review-queue');
+    expect(queueCall.queryFn).toBe(listReviewQueueMock);
   });
 
   it('moves a pending review through approve, refetch, and publish', async () => {

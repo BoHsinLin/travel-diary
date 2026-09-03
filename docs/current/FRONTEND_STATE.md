@@ -1,7 +1,7 @@
 # FRONTEND ROLE STATE — DISTILL HANDOFF
 
 T: 2026-09-03 +08:00 (Asia/Taipei)
-S: ACTIVE / corrective Pages build repair
+S: ACTIVE / DiscoveryPages generated-type repair
 L: `61dbae6 fix: finalize M2 review evidence states`
 O: Frontend Day 6 is accepted. Do not start new frontend work until the Manager assigns it.
 
@@ -10,7 +10,7 @@ O: Frontend Day 6 is accepted. Do not start new frontend work until the Manager 
 M: `7-Day M1 Hardening + TourAPI Data Vertical Slice`.
 P: M2 Day 6 / frontend discovery vertical slice = ACCEPTED.
 R: frontend owns UI architecture, responsive behavior, accessibility semantics, route UX, repository consumption, client-state handling, and browser evidence.
-X: Frontend is the sole active corrective owner. DevOps remains BLOCKED pending a corrective SHA and workflow proof.
+X: Frontend is the sole active corrective owner for `DiscoveryPages` generated-type repair. DevOps remains BLOCKED pending a CI-clean corrective SHA and workflow proof.
 
 ## 2. COMPLETED
 
@@ -47,7 +47,7 @@ DEP: Supabase Auth/anon client, generated DB types, RLS policies, RPC contracts,
 
 ## 4. OPEN ITEMS
 
-O1: P0 corrective code repair is complete locally: `ChangeNotifications` no longer queries or updates Supabase directly; `changeNotificationsRepository.ts` owns generated-type query/update mapping. Corrective SHA and CI/Pages workflow proof remain pending authorized GitHub publication; do not mark REVIEW before that proof exists.
+O1: P0 corrective task: repair `src/features/discovery/DiscoveryPages.tsx` generated-type mismatches (`status`, `risk_flags`, `priority`, `id`, `event_id`, `place_id`) through frontend repository/adapter usage and targeted tests. `ChangeNotifications` repair remains published as `e9276663271b37c904268f655889e12c3b4931a6`.
 O2: browser-injected axe cannot run in the current readonly browser sandbox. Do not claim browser axe PASS.
 O3: physical NVDA/Narrator validation is not automated. Existing proof is accessibility tree + keyboard smoke only.
 O4: `today-hero-figma` is ~1.44 MB; image compression/srcset is future performance debt, not a release blocker.
@@ -93,6 +93,8 @@ V6: browser smoke accepted: Owner Explore at 320/375/430/768/1440; filter focus/
 V7: browser console error/warning = 0 for recorded flows.
 V8: accessibility baseline accepted: semantic tree, keyboard dialog handling, `vitest-axe` Explore 0 violations with color-contrast rule excluded by existing jsdom policy.
 V9: 2026-09-03 corrective local validation PASS: `node node_modules/vitest/vitest.mjs run src/features/discovery/ChangeNotifications.test.tsx --pool=forks --maxWorkers=1 --reporter=verbose` (1 file, 2 tests); `pnpm typecheck`; `pnpm build` (2036 modules); `pnpm check:pwa-cache`.
+V10: GitHub CI run `https://github.com/BoHsinLin/travel-diary/actions/runs/33707822785` for `e927666` is FAIL (18s). GitHub annotations identify `DiscoveryPages.tsx` lines 46, 53, and 54; no `ChangeNotifications` annotation is present. Pages was not dispatched and no production deployment was performed.
+V11: 2026-09-03 DiscoveryPages corrective local validation PASS: `node node_modules/vitest/vitest.mjs run src/features/discovery/DiscoveryPages.test.tsx --pool=forks --maxWorkers=1 --reporter=verbose` (1 file, 10 tests); `pnpm typecheck`; `pnpm build` (2037 modules); `pnpm check:pwa-cache`. CI/Pages proof remains pending the scoped corrective SHA.
 N: not verified/claimable: browser-injected axe, physical screen-reader output, future production-hardening smoke.
 
 ## 7. NEXT TASK
@@ -100,7 +102,7 @@ N: not verified/claimable: browser-injected axe, physical screen-reader output, 
 N: no schema, migration, RLS/RPC, generated DB types, production configuration, deployment, fixture, or unrelated UI changes.
 P: use repository/adapter + generated DB types; do not leave direct UI-level Supabase table mutation that bypasses the established boundary.
 X: DevOps remains BLOCKED until a corrective SHA passes CI/Pages; Manager Day 8 remains WAIT.
-AC: targeted ChangeNotifications regression PASS; `pnpm typecheck` PASS; `pnpm build` PASS; `pnpm check:pwa-cache` PASS; corrective SHA CI/Pages workflow PASS; no direct contract/schema change; report REVIEW and stop. Local checks pass; corrective SHA and CI/Pages are still required.
+AC: targeted DiscoveryPages regression PASS; `pnpm typecheck` PASS; `pnpm build` PASS; `pnpm check:pwa-cache` PASS; corrective SHA CI/Pages workflow PASS; no direct contract/schema change; report REVIEW and stop.
 
 ## 8. HANDOFF NOTES
 
