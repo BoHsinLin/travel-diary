@@ -2,6 +2,12 @@ name: Supabase migration readiness
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy_m2:
+        description: Apply the reconciled pending migrations to production
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -40,5 +46,31 @@ jobs:
         run: supabase link --project-ref "${SUPABASE_PROJECT_REF}" --password "${SUPABASE_DB_PASSWORD}"
 
       - name: Show local and remote migration history only
+        shell: bash
+        run: supabase migration list --linked
+
+      - name: Verify reconciled migration history
+        shell: bash
+        run: |
+          set -euo pipefail
+          history="$(supabase migration list --linked)"
+          for version in \
+            20260828050013 20260828050021 20260828050029 \
+            20260828050433 20260828052604
+          do
+            printf '%s\n' "$history" | grep -E "^[[:space:]]*$version[[:space:]]*\\|[[:space:]]*$version[[:space:]]*\\|"
+          done
+
+      - name: Preview pending migrations
+        shell: bash
+        run: supabase db push --linked --dry-run
+
+      - name: Apply pending migrations
+        if: ${{ inputs.deploy_m2 }}
+        shell: bash
+        run: supabase db push --linked
+
+      - name: Show final migration history
+        if: ${{ inputs.deploy_m2 }}
         shell: bash
         run: supabase migration list --linked
