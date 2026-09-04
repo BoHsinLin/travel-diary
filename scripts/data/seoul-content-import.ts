@@ -8,6 +8,16 @@ const CATEGORIES = [
   'taxi', 'ferry', 'ticket', 'reservation', 'generic',
 ];
 
+type SeoulWriteMetrics = {
+  accepted: number; quarantined: number; rawStored: number; rawExisting: number;
+  placesInserted: number; placesExisting: number; provenanceStored: number;
+  provenanceExisting: number; reviewQueued: number; reviewExisting: number;
+};
+
+export type SeoulWriteResult =
+  | { status: 'idempotent_replay'; metrics: Pick<SeoulWriteMetrics, 'accepted' | 'quarantined'> }
+  | { status: 'succeeded'; metrics: SeoulWriteMetrics };
+
 function sha256(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
@@ -124,6 +134,73 @@ export function buildSeoulImportPlan(input) {
     acceptedUnverified: accepted.filter((p) => p.place.trust_level === 'unverified').length,
   };
   return { sources: [...sources.values()], accepted, quarantined, counts };
+}
+
+async function resolveInserted(db, table, row, conflict, filter) {
+  const inserted = await db.insert(table, [row], conflict, 'ignore-duplicates');
+  if (inserted[0]) return { row: inserted[0], created: true };
+  const existing = await db.select(table, filter);
+  if (!existing[0]) throw new Error(`Unable to resolve ${table} after idempotent insert.`);
+  return { row: existing[0], created: false };
+}
+
+async function createAttachmentRun(db, sourceId, idempotencyKey) {
+  const existing = await db.select('pipeline_runs', `source_id=eq.${sourceId}&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}&order=attempt.desc&limit=1`);
+  if (existing[0]?.status === 'succeeded') return { run: existing[0], replayed: true };
+  const attempt = (existing[0]?.attempt ?? 0) + 1;
+  const rows = await db.insert('pipeline_runs', [{ source_id: sourceId, trigger_kind: 'manual', status: 'running', idempotency_key: idempotencyKey, attempt }]);
+  if (!rows[0]) throw new Error('Unable to create attachment pipeline run.');
+  return { run: rows[0], replayed: false };
+}
+
+/**
+ * Server-side write primitive. Callers must provide an approved service-boundary
+ * database client; this module intentionally has no environment-variable or CLI
+ * write path, so a dry-run cannot be promoted to production accidentally.
+ */
+export async function writeSeoulImportPlan({ db, plan, idempotencyKey }): Promise<SeoulWriteResult> {
+  if (!db || typeof db.insert !== 'function' || typeof db.select !== 'function' || typeof db.patch !== 'function') throw new Error('A server-side database client is required.');
+  if (!idempotencyKey || typeof idempotencyKey !== 'string') throw new Error('A non-empty idempotency key is required.');
+  const rowsBySource = new Map();
+  for (const row of plan.accepted) rowsBySource.set(row.sourceCode, [...(rowsBySource.get(row.sourceCode) ?? []), row]);
+  const sourceByCode = new Map();
+  for (const source of plan.sources) {
+    const resolved = await resolveInserted(db, 'data_sources', source, 'code', `code=eq.${encodeURIComponent(source.code)}&limit=1`);
+    sourceByCode.set(source.code, resolved.row);
+  }
+
+  const runs = [];
+  for (const sourceCode of rowsBySource.keys()) runs.push({ sourceCode, ...(await createAttachmentRun(db, sourceByCode.get(sourceCode).id, idempotencyKey)) });
+  if (runs.every((entry) => entry.replayed)) return { status: 'idempotent_replay', metrics: { accepted: plan.accepted.length, quarantined: plan.quarantined.length } };
+
+  const metrics = { accepted: plan.accepted.length, quarantined: plan.quarantined.length, rawStored: 0, rawExisting: 0, placesInserted: 0, placesExisting: 0, provenanceStored: 0, provenanceExisting: 0, reviewQueued: 0, reviewExisting: 0 };
+  const activeRuns = runs.filter((entry) => !entry.replayed);
+  try {
+    for (const entry of activeRuns) {
+      const source = sourceByCode.get(entry.sourceCode);
+      for (const candidate of rowsBySource.get(entry.sourceCode) ?? []) {
+        const now = new Date(); const expiresAt = new Date(now.getTime() + 30 * 86400_000).toISOString();
+        const raw = await resolveInserted(db, 'source_items_raw', { source_id: source.id, pipeline_run_id: entry.run.id, external_id: candidate.externalId, content_hash: candidate.contentHash, source_url: candidate.sourceUrl, payload: candidate.rawPayload, fetched_at: now.toISOString(), expires_at: expiresAt }, 'source_id,external_id,content_hash', `source_id=eq.${source.id}&external_id=eq.${encodeURIComponent(candidate.externalId)}&content_hash=eq.${candidate.contentHash}&limit=1`);
+        raw.created ? metrics.rawStored += 1 : metrics.rawExisting += 1;
+        const place = await resolveInserted(db, 'canonical_places', candidate.place, 'canonical_key', `canonical_key=eq.${encodeURIComponent(candidate.place.canonical_key)}&limit=1`);
+        place.created ? metrics.placesInserted += 1 : metrics.placesExisting += 1;
+        const provenance = await resolveInserted(db, 'place_provenance', { place_id: place.row.id, source_id: source.id, raw_item_id: raw.row.id, ...candidate.provenance }, 'place_id,source_id,external_id', `place_id=eq.${place.row.id}&source_id=eq.${source.id}&external_id=eq.${encodeURIComponent(candidate.externalId)}&limit=1`);
+        provenance.created ? metrics.provenanceStored += 1 : metrics.provenanceExisting += 1;
+        const review = await resolveInserted(db, 'data_review_queue', { place_id: place.row.id, risk_flags: candidate.review.risk_flags, priority: candidate.review.priority }, 'place_id', `place_id=eq.${place.row.id}&limit=1`);
+        review.created ? metrics.reviewQueued += 1 : metrics.reviewExisting += 1;
+      }
+      await db.patch('pipeline_runs', `id=eq.${entry.run.id}`, { status: 'succeeded', finished_at: new Date().toISOString(), metrics });
+      await db.patch('data_sources', `id=eq.${source.id}`, { last_success_at: new Date().toISOString() });
+    }
+    return { status: 'succeeded', metrics };
+  } catch (error) {
+    await Promise.all(activeRuns.map(async (entry) => {
+      const source = sourceByCode.get(entry.sourceCode);
+      await db.patch('pipeline_runs', `id=eq.${entry.run.id}`, { status: 'failed', finished_at: new Date().toISOString(), error_code: 'SEOUL_ATTACHMENT_IMPORT_FAILED', error_summary: 'Attachment import failed; inspect protected server logs.', metrics });
+      await db.patch('data_sources', `id=eq.${source.id}`, { last_failure_at: new Date().toISOString() });
+    }));
+    throw error;
+  }
 }
 
 export async function readSeoulDataset(path) {
