@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEOUL_DATASET_PATH: data/imports/seoul_canonical_places_optimized_v5.json
-      SEOUL_DRY_RUN_SUMMARY: ${{ runner.temp }}/seoul-dry-run-summary.json
     steps:
       - uses: actions/checkout@v5
 
@@ -45,14 +44,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pnpm data:seoul:dry-run -- "${SEOUL_DATASET_PATH}" > "${SEOUL_DRY_RUN_SUMMARY}"
-          node -e "const fs=require('fs');const p=process.env.SEOUL_DRY_RUN_SUMMARY;const x=JSON.parse(fs.readFileSync(p));if(x.mode!=='dry-run'||x.counts.accepted!==45||x.counts.quarantined!==75||!x.invariants.allDraft||!x.invariants.noImages||!x.invariants.allQueued)process.exit(1);"
+          summary="${RUNNER_TEMP}/seoul-dry-run-summary.json"
+          pnpm data:seoul:dry-run -- "${SEOUL_DATASET_PATH}" > "${summary}"
+          SEOUL_DRY_RUN_SUMMARY="${summary}" node -e "const fs=require('fs');const p=process.env.SEOUL_DRY_RUN_SUMMARY;const x=JSON.parse(fs.readFileSync(p));if(x.mode!=='dry-run'||x.counts.accepted!==45||x.counts.quarantined!==75||!x.invariants.allDraft||!x.invariants.noImages||!x.invariants.allQueued)process.exit(1);"
 
       - name: Publish dry-run job summary
         shell: bash
         run: |
           set -euo pipefail
-          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.SEOUL_DRY_RUN_SUMMARY));const c=x.counts;fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,['## Seoul content import dry-run','', '- Mode: validation only; no production credentials or write path', '- Accepted: '+c.accepted, '- Quarantined: '+c.quarantined, '- Accepted official: '+c.acceptedOfficial, '- Accepted verified: '+c.acceptedVerified, '- Accepted unverified: '+c.acceptedUnverified, '- Publication: draft only', '- Images: excluded', '- Review queue: required',''].join('\n'));"
+          summary="${RUNNER_TEMP}/seoul-dry-run-summary.json"
+          SEOUL_DRY_RUN_SUMMARY="${summary}" node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.SEOUL_DRY_RUN_SUMMARY));const c=x.counts;fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,['## Seoul content import dry-run','', '- Mode: validation only; no production credentials or write path', '- Accepted: '+c.accepted, '- Quarantined: '+c.quarantined, '- Accepted official: '+c.acceptedOfficial, '- Accepted verified: '+c.acceptedVerified, '- Accepted unverified: '+c.acceptedUnverified, '- Publication: draft only', '- Images: excluded', '- Review queue: required',''].join('\n'));"
 
       - name: Upload sanitized dry-run evidence
         uses: actions/upload-artifact@v4
