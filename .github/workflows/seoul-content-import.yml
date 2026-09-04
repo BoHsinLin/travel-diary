@@ -1,0 +1,118 @@
+name: Seoul content import
+
+on:
+  workflow_dispatch:
+    inputs:
+      write_to_production:
+        description: Write the accepted Seoul rows to production draft/review tables
+        required: true
+        default: false
+        type: boolean
+      run_tourapi_matching:
+        description: Enable official TourAPI matching (requires TOURAPI_SERVICE_KEY)
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seoul-production-content-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Dry-run, then optionally write production drafts
+    runs-on: ubuntu-latest
+    environment: production-content-import
+    env:
+      SUPABASE_PROJECT_REF: mgxsjobicqyddoaejqvf
+      SEOUL_DATASET_PATH: data/imports/seoul_canonical_places_optimized_v5.json
+      SEOUL_DRY_RUN_SUMMARY: ${{ runner.temp }}/seoul-dry-run-summary.json
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fail closed unless the reviewed dataset is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${SUPABASE_PROJECT_REF}" = "mgxsjobicqyddoaejqvf"
+          test -f "${SEOUL_DATASET_PATH}"
+
+      - name: Validate adapter and safety contracts
+        run: pnpm test:data
+
+      - name: Produce sanitized dry-run summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm data:seoul:dry-run -- "${SEOUL_DATASET_PATH}" > "${SEOUL_DRY_RUN_SUMMARY}"
+          node -e "const fs=require('fs');const p=process.env.SEOUL_DRY_RUN_SUMMARY;const x=JSON.parse(fs.readFileSync(p));if(x.mode!=='dry-run'||x.counts.accepted!==45||x.counts.quarantined!==75||!x.invariants.allDraft||!x.invariants.noImages||!x.invariants.allQueued)process.exit(1);"
+
+      - name: Publish dry-run job summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.SEOUL_DRY_RUN_SUMMARY));const c=x.counts;fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,['## Seoul content import dry-run','', '- Production project: pinned and verified at write preflight', '- Accepted: '+c.accepted, '- Quarantined: '+c.quarantined, '- Accepted official: '+c.acceptedOfficial, '- Accepted verified: '+c.acceptedVerified, '- Accepted unverified: '+c.acceptedUnverified, '- Publication: draft only', '- Images: excluded', '- Review queue: required',''].join('\n'));"
+
+      - name: Upload sanitized dry-run evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-content-dry-run-${{ github.run_id }}
+          path: ${{ runner.temp }}/seoul-dry-run-summary.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail closed when production write is not explicitly enabled
+        if: ${{ !inputs.write_to_production }}
+        run: echo "Dry-run completed; production write gate is closed."
+
+      - name: Verify masked production authority and schema
+        if: ${{ inputs.write_to_production }}
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TOURAPI_SERVICE_KEY: ${{ secrets.TOURAPI_SERVICE_KEY }}
+          RUN_TOURAPI_MATCHING: ${{ inputs.run_tourapi_matching }}
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_URL:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test "${SUPABASE_URL}" = "https://${SUPABASE_PROJECT_REF}.supabase.co"
+          if [ "${RUN_TOURAPI_MATCHING}" = "true" ]; then test -n "${TOURAPI_SERVICE_KEY:-}"; fi
+          schema_file="${RUNNER_TEMP}/production-openapi.json"
+          status=$(curl --silent --show-error --output "${schema_file}" --write-out '%{http_code}' \
+            "${SUPABASE_URL}/rest/v1/" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+          test "${status}" = "200"
+          node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(process.argv[1]));const s=JSON.stringify(d);for(const n of ['data_sources','pipeline_runs','source_items_raw','events','canonical_places','event_provenance','place_provenance','data_review_queue','add_event_to_itinerary','update_data_draft','review_data_item'])if(!s.includes(n))throw Error('Missing production contract member: '+n);" "${schema_file}"
+          rm -f "${schema_file}"
+
+      - name: Write accepted rows as draft with provenance and review queue
+        if: ${{ inputs.write_to_production }}
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TOURAPI_SERVICE_KEY: ${{ secrets.TOURAPI_SERVICE_KEY }}
+          RUN_TOURAPI_MATCHING: ${{ inputs.run_tourapi_matching }}
+          SEOUL_IMPORT_WRITE: "true"
+        run: |
+          set -euo pipefail
+          node -e "const p=require('./package.json');if(!p.scripts?.['data:seoul:import'])throw Error('Approved Data production writer is not present; refusing to write')"
+          pnpm data:seoul:import -- "${SEOUL_DATASET_PATH}"
