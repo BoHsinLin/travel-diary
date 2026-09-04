@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEOUL_DATASET_PATH: data/imports/seoul_canonical_places_optimized_v5.json
-      SEOUL_DRY_RUN_SUMMARY: ${{ runner.temp }}/seoul-write-preflight.json
+      SEOUL_DRY_RUN_SUMMARY: seoul-write-preflight.json
     steps:
       - uses: actions/checkout@v5
 
@@ -64,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: seoul-write-preflight-${{ github.run_id }}
-          path: ${{ runner.temp }}/seoul-write-preflight.json
+          path: seoul-write-preflight.json
           if-no-files-found: error
           retention-days: 14
 
