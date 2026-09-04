@@ -82,6 +82,47 @@ export function reviewRiskFlags(place) {
   return flags;
 }
 
+function tourApiCoordinate(value, min, max) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= min && numeric <= max ? numeric : null;
+}
+
+function seoulAddress(value = '') {
+  return /서울|seoul/i.test(String(value));
+}
+
+/** Pure matching plan: callers supply already-fetched official TourAPI candidates. */
+export function buildTourApiMatchingPlan(input, tourApiCandidates) {
+  const validation = validateSeoulDataset(input);
+  if (!validation.valid) throw new Error(`Invalid Seoul dataset: ${validation.errors.join(';')}`);
+  const accepted = []; const quarantined = [];
+  for (const place of input.places) {
+    if (reviewRiskFlags(place).includes('missing_source_url')) {
+      quarantined.push({ canonicalKey: place.canonical_key, reason: 'attachment_quarantined_missing_source_url' });
+      continue;
+    }
+    const candidates = (tourApiCandidates ?? []).filter((item) => normalizedPlaceName(item?.title) === normalizedPlaceName(place.name_ko));
+    const compatible = candidates.filter((item) => {
+      const id = String(item?.contentid ?? '').trim();
+      const lat = tourApiCoordinate(item?.mapy, 33, 39); const lng = tourApiCoordinate(item?.mapx, 124, 132);
+      return Boolean(id) && lat !== null && lng !== null && seoulAddress(item?.addr1);
+    });
+    if (compatible.length !== 1) {
+      quarantined.push({ canonicalKey: place.canonical_key, reason: compatible.length ? 'ambiguous_tourapi_match' : 'missing_or_incompatible_tourapi_match' });
+      continue;
+    }
+    const item = compatible[0]; const lat = tourApiCoordinate(item.mapy, 33, 39); const lng = tourApiCoordinate(item.mapx, 124, 132);
+    accepted.push({
+      attachmentCanonicalKey: place.canonical_key,
+      canonicalKey: `tourapi:place:${String(item.contentid).trim()}`,
+      tourApi: { contentid: String(item.contentid).trim(), sourceUrl: `https://apis.data.go.kr/B551011/KorService2/detailCommon2?contentId=${encodeURIComponent(String(item.contentid).trim())}`, lat, lng, titleKo: item.title.trim(), addressKo: item.addr1 },
+      attachmentProvenance: { externalId: place.canonical_key, sourceUrl: place.website_url ?? null, trustLevel: place.trust_level },
+      publicationStatus: 'draft', reviewStatus: 'pending', riskFlags: reviewRiskFlags(place),
+    });
+  }
+  return { accepted, quarantined, counts: { total: input.places.length, accepted: accepted.length, quarantined: quarantined.length } };
+}
+
 function sourceCode(place) {
   const host = new URL(place.website_url).hostname.toLowerCase().replace(/^www\./, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `manual-seoul-${place.trust_level}-${host}`.slice(0, 64);

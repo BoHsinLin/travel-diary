@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSeoulImportPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
+import { buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
 
 class FakeDb {
   tables = { data_sources: [], pipeline_runs: [], source_items_raw: [], canonical_places: [], place_provenance: [], data_review_queue: [] };
@@ -70,6 +70,33 @@ test('plan hashes raw evidence and creates provenance without guessing coordinat
   assert.equal(row.provenance.external_id, row.place.canonical_key);
   assert.equal(row.place.lat, null); assert.equal(row.place.lng, null);
   assert.ok(row.review.risk_flags.includes('missing_coordinates'));
+});
+
+test('TourAPI matching accepts only a unique official title, Seoul address, contentid, and WGS84 coordinates', () => {
+  const input = dataset(); const target = input.places[0];
+  const match = { contentid: '1234', title: target.name_ko, addr1: '서울특별시 종로구', mapy: '37.57', mapx: '126.98' };
+  const plan = buildTourApiMatchingPlan(input, [match]);
+  assert.equal(plan.counts.accepted, 1); assert.equal(plan.counts.quarantined, 119);
+  assert.deepEqual(plan.accepted[0].tourApi, { contentid: '1234', sourceUrl: 'https://apis.data.go.kr/B551011/KorService2/detailCommon2?contentId=1234', lat: 37.57, lng: 126.98, titleKo: target.name_ko, addressKo: '서울특별시 종로구' });
+  assert.equal(plan.accepted[0].canonicalKey, 'tourapi:place:1234'); assert.equal(plan.accepted[0].publicationStatus, 'draft');
+});
+
+test('TourAPI matching quarantines name-only collisions, non-Seoul addresses, and missing coordinates', () => {
+  const input = dataset(); const target = input.places[0];
+  const collision = { contentid: '1', title: target.name_ko, addr1: '서울특별시', mapy: '37.57', mapx: '126.98' };
+  const duplicate = { ...collision, contentid: '2' };
+  const plan = buildTourApiMatchingPlan(input, [collision, duplicate]);
+  assert.equal(plan.counts.accepted, 0); assert.ok(plan.quarantined.some((row) => row.canonicalKey === target.canonical_key && row.reason === 'ambiguous_tourapi_match'));
+  const invalid = buildTourApiMatchingPlan(input, [{ ...collision, addr1: '부산광역시', mapy: null }]);
+  assert.equal(invalid.counts.accepted, 0);
+});
+
+test('TourAPI matching never admits an attachment row quarantined for missing HTTPS source evidence', () => {
+  const input = dataset(); const quarantined = input.places[45];
+  const otherwiseCompatible = { contentid: '9999', title: quarantined.name_ko, addr1: '서울특별시 중구', mapy: '37.56', mapx: '126.99' };
+  const plan = buildTourApiMatchingPlan(input, [otherwiseCompatible]);
+  assert.equal(plan.counts.accepted, 0);
+  assert.deepEqual(plan.quarantined.find((row) => row.canonicalKey === quarantined.canonical_key), { canonicalKey: quarantined.canonical_key, reason: 'attachment_quarantined_missing_source_url' });
 });
 
 test('server-side writer preserves draft, raw, provenance, review, and idempotent replay', async () => {
