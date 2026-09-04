@@ -1,0 +1,111 @@
+name: Seoul attachment write-path validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      validate_write_path:
+        description: Run the protected fake-DB writer contract validation (never imports production data)
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seoul-content-production-write-validation
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Read-only Seoul attachment preflight
+    runs-on: ubuntu-latest
+    env:
+      SEOUL_DATASET_PATH: data/imports/seoul_canonical_places_optimized_v5.json
+      SEOUL_DRY_RUN_SUMMARY: ${{ runner.temp }}/seoul-write-preflight.json
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fail closed unless the reviewed dataset is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${SEOUL_DATASET_PATH}"
+
+      - name: Validate reviewed attachment contracts
+        run: pnpm test:data
+
+      - name: Produce read-only preflight summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm data:seoul:dry-run -- "${SEOUL_DATASET_PATH}" > "${SEOUL_DRY_RUN_SUMMARY}"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.SEOUL_DRY_RUN_SUMMARY));if(x.mode!=='dry-run'||x.counts.accepted!==45||x.counts.quarantined!==75||!x.invariants.allDraft||!x.invariants.noImages||!x.invariants.allQueued)process.exit(1);"
+
+      - name: Publish sanitized preflight summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.SEOUL_DRY_RUN_SUMMARY));fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,['## Seoul attachment write preflight','', '- Mode: read-only preflight', '- Accepted: '+x.counts.accepted, '- Quarantined: '+x.counts.quarantined, '- Production writes: 0', '- Publication: draft only', '- Images: excluded', '- Review queue: required',''].join('\\n'));"
+
+      - name: Upload sanitized preflight evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-write-preflight-${{ github.run_id }}
+          path: ${{ runner.temp }}/seoul-write-preflight.json
+          if-no-files-found: error
+          retention-days: 14
+
+  write-path-validation:
+    name: Protected writer contract validation (no production import)
+    needs: preflight
+    if: ${{ inputs.validate_write_path == true }}
+    runs-on: ubuntu-latest
+    environment: production-content-import
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+
+      - name: Fail closed when masked server authority is unavailable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_URL:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+
+      - name: Validate Data-owned idempotent writer against its fake database boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm build:data
+          node --test .data-dist/scripts/data/seoul-content-import.node-test.js
+
+      - name: Record no-write validation result
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\\n' '## Protected Seoul writer validation' '' '- Server-side secrets: presence checked only' '- Writer boundary: fake database contract test' '- Production writes: 0' '- Production import: not authorized' >> "$GITHUB_STEP_SUMMARY"
