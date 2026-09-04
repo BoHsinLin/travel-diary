@@ -16,7 +16,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bundle:report": "node scripts/report-bundle.mjs",
-    "check:pwa-cache": "node scripts/check-pwa-cache.mjs"
+    "check:pwa-cache": "node scripts/check-pwa-cache.mjs",
+    "build:data": "tsc -p scripts/data/tsconfig.json",
+    "data:tourapi": "pnpm build:data && node .data-dist/scripts/data/tourapi-pipeline.js",
+    "data:seoul:dry-run": "pnpm build:data && node .data-dist/scripts/data/seoul-content-import.js",
+    "test:data": "pnpm build:data && node --test .data-dist/scripts/data/*.node-test.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
