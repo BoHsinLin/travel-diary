@@ -18,7 +18,7 @@ jobs:
     env:
       TOURAPI_SERVICE_KEY: ${{ secrets.TOURAPI_SERVICE_KEY }}
       SEOUL_DATASET_PATH: data/imports/seoul_canonical_places_optimized_v5.json
-      MATCHING_SUMMARY: ${{ runner.temp }}/seoul-tourapi-matching-summary.json
+      MATCHING_SUMMARY: seoul-tourapi-matching-summary.json
     steps:
       - uses: actions/checkout@v5
 
@@ -61,6 +61,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: seoul-tourapi-matching-${{ github.run_id }}
-          path: ${{ runner.temp }}/seoul-tourapi-matching-summary.json
+          path: seoul-tourapi-matching-summary.json
           if-no-files-found: error
           retention-days: 14
