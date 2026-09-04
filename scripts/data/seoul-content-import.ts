@@ -257,6 +257,46 @@ export async function runSeoulDryRun(path) {
   };
 }
 
+const TOUR_API_SEARCH_URL = 'https://apis.data.go.kr/B551011/KorService2/searchKeyword2';
+
+function tourApiItems(payload) {
+  const raw = payload?.response?.body?.items?.item;
+  return Array.isArray(raw) ? raw : raw ? [raw] : [];
+}
+
+/**
+ * Read-only KTO matching primitive. It intentionally has no database client,
+ * Supabase import, publication, or raw-response output path.
+ */
+export async function runOfficialTourApiMatching({ path, serviceKey, fetchImpl = fetch }) {
+  if (!serviceKey || typeof serviceKey !== 'string') throw new Error('TOURAPI_SERVICE_KEY is required.');
+  const input = await readSeoulDataset(path);
+  const validation = validateSeoulDataset(input);
+  if (!validation.valid) throw new Error(`Invalid Seoul dataset: ${validation.errors.join(';')}`);
+  const eligible = input.places.filter((place) => !reviewRiskFlags(place).includes('missing_source_url'));
+  const candidates = [];
+  for (const place of eligible) {
+    const params = new URLSearchParams({ serviceKey, MobileOS: 'ETC', MobileApp: 'TravelDiary', _type: 'json', numOfRows: '10', pageNo: '1', keyword: place.name_ko });
+    const response = await fetchImpl(`${TOUR_API_SEARCH_URL}?${params}`);
+    if (!response.ok) throw new Error(`TourAPI request failed with HTTP ${response.status}.`);
+    const payload = await response.json();
+    if (String(payload?.response?.header?.resultCode) !== '0000') throw new Error('TourAPI returned a non-success response.');
+    candidates.push(...tourApiItems(payload));
+  }
+  const plan = buildTourApiMatchingPlan(input, candidates);
+  return {
+    mode: 'official-tourapi-matching-no-write',
+    counts: plan.counts,
+    queriedEligibleAttachments: eligible.length,
+    invariants: {
+      productionWrites: 0,
+      allDraft: plan.accepted.every((row) => row.publicationStatus === 'draft'),
+      allPendingReview: plan.accepted.every((row) => row.reviewStatus === 'pending'),
+      quarantinedBoundaryPreserved: plan.quarantined.filter((row) => row.reason === 'attachment_quarantined_missing_source_url').length === input.places.length - eligible.length,
+    },
+  };
+}
+
 if (String(process.argv[1] ?? '').replaceAll('\\', '/').endsWith('/seoul-content-import.js')) {
   const inputPath = process.argv.slice(2).find((value) => value !== '--');
   if (!inputPath) throw new Error('Usage: pnpm data:seoul:dry-run -- <path-to-json>');
