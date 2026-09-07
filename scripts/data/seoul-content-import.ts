@@ -124,13 +124,17 @@ export function buildTourApiMatchingPlan(input, tourApiCandidates) {
 }
 
 /** Pure matching plan: callers supply already-fetched Google Places API (New) candidates. */
-function googlePlacesCompatibleCandidates(place, googlePlacesCandidates) {
-  const candidates = (googlePlacesCandidates ?? []).filter((item) => normalizedPlaceName(item?.displayName?.text) === normalizedPlaceName(place.name_ko));
-  return candidates.filter((item) => {
+function googlePlacesCompatibleCandidates(place: any, googlePlacesCandidates: any[] = []) {
+  const candidates: any[] = googlePlacesCandidates.filter((item) => normalizedPlaceName(item?.displayName?.text) === normalizedPlaceName(place.name_ko));
+  const valid = candidates.filter((item) => {
     const id = String(item?.id ?? '').trim();
     const lat = tourApiCoordinate(item?.location?.latitude, 33, 39); const lng = tourApiCoordinate(item?.location?.longitude, 124, 132);
     return Boolean(id) && lat !== null && lng !== null && seoulAddress(item?.formattedAddress);
   });
+  // A repeated API row for the same immutable Google place_id is one candidate;
+  // different place IDs are ambiguous, regardless of result ordering.
+  return [...new Map<string, any>(valid.map((item) => [String(item.id).trim(), item])).entries()]
+    .sort(([left], [right]) => left.localeCompare(right)).map(([, item]) => item);
 }
 
 export function buildGooglePlacesMatchingPlan(input, googlePlacesCandidates) {
@@ -151,7 +155,13 @@ export function buildGooglePlacesMatchingPlan(input, googlePlacesCandidates) {
     accepted.push({
       attachmentCanonicalKey: place.canonical_key,
       canonicalKey: `google-places:place:${id}`,
-      googlePlaces: { placeId: id, lat: tourApiCoordinate(item.location.latitude, 33, 39), lng: tourApiCoordinate(item.location.longitude, 124, 132), title: item.displayName.text.trim(), address: item.formattedAddress },
+      googlePlaces: {
+        placeId: id,
+        lat: tourApiCoordinate(item.location.latitude, 33, 39),
+        lng: tourApiCoordinate(item.location.longitude, 124, 132),
+        title: item.displayName.text.trim(),
+        address: item.formattedAddress,
+      },
       attachmentProvenance: { externalId: place.canonical_key, sourceUrl: place.website_url ?? null, trustLevel: place.trust_level },
       publicationStatus: 'draft', reviewStatus: 'pending', riskFlags: reviewRiskFlags(place),
     });
@@ -336,7 +346,10 @@ export async function runOfficialTourApiMatching({ path, serviceKey, fetchImpl =
 const GOOGLE_PLACES_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
 const GOOGLE_PLACES_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.location';
 
-/** Read-only Google Places API (New) matching primitive with no raw-output, DB, import, or publication path. */
+/**
+ * Read-only Google Places API (New) matching primitive. It does not expose the
+ * API key, request URL, response payload, database client, import, or publish path.
+ */
 export async function runGooglePlacesMatching({ path, apiKey, fetchImpl = fetch }) {
   if (!apiKey || typeof apiKey !== 'string') throw new Error('GOOGLE_PLACES_API_KEY is required.');
   const input = await readSeoulDataset(path);
@@ -357,12 +370,17 @@ export async function runGooglePlacesMatching({ path, apiKey, fetchImpl = fetch 
     candidates.push(...rows);
   }
   const plan = buildGooglePlacesMatchingPlan(input, candidates);
-  return { mode: 'google-places-matching-no-write', counts: plan.counts, queriedEligibleAttachments: eligible.length, invariants: {
-    productionWrites: 0,
-    allDraft: plan.accepted.every((row) => row.publicationStatus === 'draft'),
-    allPendingReview: plan.accepted.every((row) => row.reviewStatus === 'pending'),
-    quarantinedBoundaryPreserved: plan.quarantined.filter((row) => row.reason === 'attachment_quarantined_missing_source_url').length === input.places.length - eligible.length,
-  } };
+  return {
+    mode: 'google-places-matching-no-write',
+    counts: plan.counts,
+    queriedEligibleAttachments: eligible.length,
+    invariants: {
+      productionWrites: 0,
+      allDraft: plan.accepted.every((row) => row.publicationStatus === 'draft'),
+      allPendingReview: plan.accepted.every((row) => row.reviewStatus === 'pending'),
+      quarantinedBoundaryPreserved: plan.quarantined.filter((row) => row.reason === 'attachment_quarantined_missing_source_url').length === input.places.length - eligible.length,
+    },
+  };
 }
 
 if (String(process.argv[1] ?? '').replaceAll('\\', '/').endsWith('/seoul-content-import.js')) {

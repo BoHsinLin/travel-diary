@@ -109,6 +109,12 @@ test('Google Places matching accepts only a unique Korean title, Seoul address, 
   assert.equal(plan.accepted[0].publicationStatus, 'draft');
 });
 
+test('Google Places matching treats duplicate rows for one place ID as one deterministic candidate', () => {
+  const input = dataset(); const target = input.places[0];
+  const match = { id: 'ChIJ-same', displayName: { text: target.name_ko }, formattedAddress: '서울특별시 종로구', location: { latitude: 37.57, longitude: 126.98 } };
+  const plan = buildGooglePlacesMatchingPlan(input, [match, { ...match }]);
+  assert.equal(plan.counts.accepted, 1); assert.equal(plan.accepted[0].googlePlaces.placeId, 'ChIJ-same');
+});
 test('Google Places matching quarantines incomplete, non-Seoul, ambiguous, and source-evidence-invalid records', () => {
   const input = dataset(); const target = input.places[0];
   const candidate = { id: 'ChIJ-one', displayName: { text: target.name_ko }, formattedAddress: '서울특별시', location: { latitude: 37.57, longitude: 126.98 } };
