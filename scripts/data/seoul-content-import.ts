@@ -299,6 +299,46 @@ export function buildCrossSourceEvidenceArtifact(input, googlePlacesCandidates, 
   };
 }
 
+/**
+ * Verifies human-reviewed direct Google Place IDs against injected, already
+ * obtained candidate details. This is a pure no-write plan: it has no fetch,
+ * key, database, raw-response, import, or publication path.
+ */
+export function buildDirectGooglePlaceIdVerificationPlan(input, injectedCandidates, evidenceInput) {
+  const contract = validateCrossSourceEvidenceInput(evidenceInput);
+  if (!contract.valid) throw new Error(`Invalid cross-source evidence input: ${contract.errors.join(';')}`);
+  const artifact = buildCrossSourceEvidenceArtifact(input, injectedCandidates, evidenceInput);
+  const verified = artifact.accepted.map((row) => ({
+    attachmentCanonicalKey: row.attachmentCanonicalKey,
+    googlePlaceId: row.verification.googlePlaceId,
+    googlePlaces: row.googlePlaces,
+    primaryEvidence: row.verification.primaryEvidence,
+    communityCorroboration: row.verification.communityCorroboration,
+    publicationStatus: 'draft',
+    reviewStatus: 'pending',
+  }));
+  const verifiedPlaceIds = new Set(verified.map((row) => row.googlePlaceId));
+  const unverifiedEvidence = contract.records
+    .filter((record) => !verifiedPlaceIds.has(record.googlePlaceId))
+    .map((record) => ({ googlePlaceId: record.googlePlaceId, reason: 'no_strict_matching_candidate' }));
+  return {
+    version: CROSS_SOURCE_EVIDENCE_VERSION,
+    mode: 'direct-google-place-id-verification-no-write',
+    verified,
+    quarantined: artifact.quarantined,
+    unverifiedEvidence,
+    counts: { total: input.places.length, verified: verified.length, quarantined: artifact.quarantined.length, unverifiedEvidence: unverifiedEvidence.length },
+    invariants: {
+      productionWrites: 0,
+      samePlaceIds: verified.every((row) => row.googlePlaces.placeId === row.googlePlaceId),
+      allDraft: verified.every((row) => row.publicationStatus === 'draft'),
+      allPendingReview: verified.every((row) => row.reviewStatus === 'pending'),
+      rawPayloadStored: false,
+      quarantinedBoundaryPreserved: artifact.invariants.quarantinedBoundaryPreserved,
+    },
+  };
+}
+
 function sourceCode(place) {
   const host = new URL(place.website_url).hostname.toLowerCase().replace(/^www\./, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `manual-seoul-${place.trust_level}-${host}`.slice(0, 64);

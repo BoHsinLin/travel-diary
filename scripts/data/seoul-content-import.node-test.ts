@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCrossSourceEvidenceArtifact, buildCrossSourceVerificationManifest, buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateCrossSourceEvidenceInput, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
+import { buildCrossSourceEvidenceArtifact, buildCrossSourceVerificationManifest, buildDirectGooglePlaceIdVerificationPlan, buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateCrossSourceEvidenceInput, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
 
 class FakeDb {
   tables = { data_sources: [], pipeline_runs: [], source_items_raw: [], canonical_places: [], place_provenance: [], data_review_queue: [] };
@@ -177,6 +177,24 @@ test('cross-source evidence contract rejects user content and produces a no-writ
   const unsafe = { ...evidenceInput, records: [{ ...evidenceInput.records[0], communityListing: { ...evidenceInput.records[0].communityListing, review: 'copied user content' } }] };
   assert.ok(validateCrossSourceEvidenceInput(unsafe).errors.some((error) => error.includes('invalid_community_fields')));
   assert.throws(() => buildCrossSourceEvidenceArtifact(input, [candidate], unsafe), /Invalid cross-source evidence input/);
+});
+
+test('direct Google Place ID plan verifies only the same strict injected candidate ID without raw output', () => {
+  const input = dataset(); const target = input.places[0];
+  const candidate = { id: 'ChIJ-direct', displayName: { text: target.name_ko }, formattedAddress: '서울특별시 종로구', location: { latitude: 37.57, longitude: 126.98 }, rawPayload: 'must not appear' };
+  const evidenceInput = { version: 'cross-source-evidence-v1', records: [{ googlePlaceId: 'ChIJ-direct', primaryEvidence: { kind: 'official', url: 'https://official.example/venue' } }] };
+  const plan = buildDirectGooglePlaceIdVerificationPlan(input, [candidate], evidenceInput);
+  assert.deepEqual(plan.counts, { total: 120, verified: 1, quarantined: 119, unverifiedEvidence: 0 });
+  assert.deepEqual(plan.verified[0], {
+    attachmentCanonicalKey: target.canonical_key, googlePlaceId: 'ChIJ-direct',
+    googlePlaces: { placeId: 'ChIJ-direct', lat: 37.57, lng: 126.98, title: target.name_ko, address: '서울특별시 종로구' },
+    primaryEvidence: { kind: 'official', url: 'https://official.example/venue' }, communityCorroboration: null,
+    publicationStatus: 'draft', reviewStatus: 'pending',
+  });
+  assert.deepEqual(plan.invariants, { productionWrites: 0, samePlaceIds: true, allDraft: true, allPendingReview: true, rawPayloadStored: false, quarantinedBoundaryPreserved: true });
+  assert.equal(JSON.stringify(plan).includes('must not appear'), false);
+  const mismatch = buildDirectGooglePlaceIdVerificationPlan(input, [{ ...candidate, id: 'ChIJ-other' }], evidenceInput);
+  assert.equal(mismatch.counts.verified, 0); assert.deepEqual(mismatch.unverifiedEvidence, [{ googlePlaceId: 'ChIJ-direct', reason: 'no_strict_matching_candidate' }]);
 });
 test('Google Places matching quarantines incomplete, non-Seoul, ambiguous, and source-evidence-invalid records', () => {
   const input = dataset(); const target = input.places[0];
