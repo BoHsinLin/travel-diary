@@ -229,6 +229,76 @@ export function buildCrossSourceVerificationManifest(input, googlePlacesCandidat
   return { accepted, quarantined, counts: { total: input.places.length, accepted: accepted.length, quarantined: quarantined.length } };
 }
 
+const CROSS_SOURCE_EVIDENCE_VERSION = 'cross-source-evidence-v1';
+
+function hasOnlyKeys(value: any, keys: string[]) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).every((key) => keys.includes(key));
+}
+
+/**
+ * Validates the narrow, human-reviewed input accepted by the protected
+ * no-write runner. Unknown fields are rejected rather than silently retained,
+ * preventing review text, photos, and user content from reaching artifacts.
+ */
+export function validateCrossSourceEvidenceInput(input: any) {
+  const errors: string[] = [];
+  if (!hasOnlyKeys(input, ['version', 'records'])) errors.push('invalid_top_level_fields');
+  if (input?.version !== CROSS_SOURCE_EVIDENCE_VERSION) errors.push('invalid_version');
+  if (!Array.isArray(input?.records)) errors.push('records_must_be_array');
+  const seenGooglePlaceIds = new Set<string>();
+  const records = Array.isArray(input?.records) ? input.records : [];
+  records.forEach((record, index) => {
+    const row = index + 1;
+    if (!hasOnlyKeys(record, ['googlePlaceId', 'primaryEvidence', 'communityListing'])) errors.push(`row_${row}:invalid_record_fields`);
+    const placeId = String(record?.googlePlaceId ?? '').trim();
+    if (!placeId) errors.push(`row_${row}:missing_google_place_id`);
+    else if (seenGooglePlaceIds.has(placeId)) errors.push(`row_${row}:duplicate_google_place_id`); else seenGooglePlaceIds.add(placeId);
+    if (!hasOnlyKeys(record?.primaryEvidence, ['kind', 'url'])) errors.push(`row_${row}:invalid_primary_evidence_fields`);
+    if (!['official', 'merchant'].includes(record?.primaryEvidence?.kind)) errors.push(`row_${row}:invalid_primary_evidence_kind`);
+    if (!validHttps(record?.primaryEvidence?.url)) errors.push(`row_${row}:invalid_primary_evidence_url`);
+    if (record?.communityListing !== undefined) {
+      if (!hasOnlyKeys(record.communityListing, ['url', 'nameAgrees', 'seoulAddressAgrees', 'phoneLastFourAgrees'])) errors.push(`row_${row}:invalid_community_fields`);
+      if (!validHttps(record.communityListing?.url)) errors.push(`row_${row}:invalid_community_url`);
+      for (const field of ['nameAgrees', 'seoulAddressAgrees', 'phoneLastFourAgrees']) {
+        if (typeof record.communityListing?.[field] !== 'boolean') errors.push(`row_${row}:invalid_community_${field}`);
+      }
+    }
+  });
+  const sanitizedRecords = errors.length ? [] : records.map((record) => ({
+    googlePlaceId: String(record.googlePlaceId).trim(),
+    primaryEvidence: { kind: record.primaryEvidence.kind, url: record.primaryEvidence.url },
+    ...(record.communityListing ? { communityListing: {
+      url: record.communityListing.url,
+      nameAgrees: record.communityListing.nameAgrees,
+      seoulAddressAgrees: record.communityListing.seoulAddressAgrees,
+      phoneLastFourAgrees: record.communityListing.phoneLastFourAgrees,
+    } } : {}),
+  }));
+  return { valid: errors.length === 0, errors, records: sanitizedRecords };
+}
+
+/** Pure artifact for a future protected no-write runner; it never performs I/O. */
+export function buildCrossSourceEvidenceArtifact(input, googlePlacesCandidates, evidenceInput) {
+  const contract = validateCrossSourceEvidenceInput(evidenceInput);
+  if (!contract.valid) throw new Error(`Invalid cross-source evidence input: ${contract.errors.join(';')}`);
+  const manifest = buildCrossSourceVerificationManifest(input, googlePlacesCandidates, contract.records);
+  return {
+    version: CROSS_SOURCE_EVIDENCE_VERSION,
+    mode: 'cross-source-evidence-no-write',
+    accepted: manifest.accepted,
+    quarantined: manifest.quarantined,
+    counts: manifest.counts,
+    invariants: {
+      productionWrites: 0,
+      allDraft: manifest.accepted.every((row) => row.publicationStatus === 'draft' && row.verification.publicationStatus === 'draft'),
+      allPendingReview: manifest.accepted.every((row) => row.reviewStatus === 'pending' && row.verification.reviewStatus === 'pending'),
+      communityContentSanitized: true,
+      quarantinedBoundaryPreserved: manifest.quarantined.filter((row) => row.reason === 'attachment_quarantined_missing_source_url').length === input.places.filter((place) => reviewRiskFlags(place).includes('missing_source_url')).length,
+    },
+  };
+}
+
 function sourceCode(place) {
   const host = new URL(place.website_url).hostname.toLowerCase().replace(/^www\./, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `manual-seoul-${place.trust_level}-${host}`.slice(0, 64);

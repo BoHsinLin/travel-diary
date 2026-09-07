@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCrossSourceVerificationManifest, buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
+import { buildCrossSourceEvidenceArtifact, buildCrossSourceVerificationManifest, buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateCrossSourceEvidenceInput, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
 
 class FakeDb {
   tables = { data_sources: [], pipeline_runs: [], source_items_raw: [], canonical_places: [], place_provenance: [], data_review_queue: [] };
@@ -157,6 +157,26 @@ test('cross-source manifest preserves the original evidence quarantine and fails
   assert.ok(ambiguous.quarantined.some((row) => row.reason === 'ambiguous_primary_evidence'));
   const blocked = buildCrossSourceVerificationManifest(input, [{ ...candidate, displayName: { text: input.places[45].name_ko } }], evidence);
   assert.deepEqual(blocked.quarantined.find((row) => row.canonicalKey === input.places[45].canonical_key), { canonicalKey: input.places[45].canonical_key, reason: 'attachment_quarantined_missing_source_url' });
+});
+
+test('cross-source evidence contract rejects user content and produces a no-write sanitized artifact', () => {
+  const input = dataset(); const target = input.places[0];
+  const candidate = { id: 'ChIJ-artifact', displayName: { text: target.name_ko }, formattedAddress: '서울특별시', location: { latitude: 37.57, longitude: 126.98 } };
+  const evidenceInput = {
+    version: 'cross-source-evidence-v1', records: [{
+      googlePlaceId: candidate.id, primaryEvidence: { kind: 'merchant', url: 'https://merchant.example/venue' },
+      communityListing: { url: 'https://community.example/venue', nameAgrees: true, seoulAddressAgrees: true, phoneLastFourAgrees: true },
+    }],
+  };
+  assert.equal(validateCrossSourceEvidenceInput(evidenceInput).valid, true);
+  const artifact = buildCrossSourceEvidenceArtifact(input, [candidate], evidenceInput);
+  assert.equal(artifact.mode, 'cross-source-evidence-no-write');
+  assert.deepEqual(artifact.invariants, { productionWrites: 0, allDraft: true, allPendingReview: true, communityContentSanitized: true, quarantinedBoundaryPreserved: true });
+  assert.equal(artifact.counts.accepted, 1);
+  assert.equal(JSON.stringify(artifact).includes('copied user content'), false);
+  const unsafe = { ...evidenceInput, records: [{ ...evidenceInput.records[0], communityListing: { ...evidenceInput.records[0].communityListing, review: 'copied user content' } }] };
+  assert.ok(validateCrossSourceEvidenceInput(unsafe).errors.some((error) => error.includes('invalid_community_fields')));
+  assert.throws(() => buildCrossSourceEvidenceArtifact(input, [candidate], unsafe), /Invalid cross-source evidence input/);
 });
 test('Google Places matching quarantines incomplete, non-Seoul, ambiguous, and source-evidence-invalid records', () => {
   const input = dataset(); const target = input.places[0];
