@@ -1,0 +1,58 @@
+name: Seoul Google Places matching
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seoul-google-places-matching
+  cancel-in-progress: false
+
+jobs:
+  match:
+    name: Protected Google Places matching (no production write)
+    runs-on: ubuntu-latest
+    environment: production-content-import
+    env:
+      GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+      SEOUL_DATASET_PATH: data/imports/seoul_canonical_places_optimized_v5.json
+      MATCHING_SUMMARY: seoul-google-places-matching-summary.json
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - name: Fail closed when matching authority or reviewed dataset is unavailable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GOOGLE_PLACES_API_KEY:-}"
+          test -f "${SEOUL_DATASET_PATH}"
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate matching contracts
+        run: pnpm test:data
+      - name: Produce sanitized Google Places matching evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm data:seoul:google-places-match -- "${SEOUL_DATASET_PATH}" > "${MATCHING_SUMMARY}"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.MATCHING_SUMMARY));if(x.mode!=='google-places-matching-no-write'||x.counts.total!==120||x.queriedEligibleAttachments!==45||x.invariants.productionWrites!==0||!x.invariants.allDraft||!x.invariants.allPendingReview||!x.invariants.quarantinedBoundaryPreserved)process.exit(1);"
+      - name: Publish sanitized matching summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.MATCHING_SUMMARY));const c=x.counts;fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,['## Seoul Google Places matching','', '- Mode: Google Places API (New) matching only; no Supabase access', '- Eligible attachment queries: '+x.queriedEligibleAttachments, '- Matched candidates: '+c.accepted, '- Quarantined: '+c.quarantined, '- Production writes: 0', '- Publication: not authorized',''].join('\\n'));"
+      - name: Upload sanitized matching evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-google-places-matching-${{ github.run_id }}
+          path: seoul-google-places-matching-summary.json
+          if-no-files-found: error
+          retention-days: 14

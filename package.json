@@ -21,6 +21,7 @@
     "data:tourapi": "pnpm build:data && node .data-dist/scripts/data/tourapi-pipeline.js",
     "data:seoul:dry-run": "pnpm build:data && node .data-dist/scripts/data/seoul-content-import.js",
     "data:seoul:tourapi-match": "pnpm build:data && node .data-dist/scripts/data/seoul-tourapi-matching-cli.js",
+    "data:seoul:google-places-match": "pnpm build:data && node .data-dist/scripts/data/seoul-google-places-matching-cli.js",
     "test:data": "pnpm build:data && node --test .data-dist/scripts/data/*.node-test.js"
   },
   "dependencies": {

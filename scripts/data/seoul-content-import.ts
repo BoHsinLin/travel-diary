@@ -123,6 +123,38 @@ export function buildTourApiMatchingPlan(input, tourApiCandidates) {
   return { accepted, quarantined, counts: { total: input.places.length, accepted: accepted.length, quarantined: quarantined.length } };
 }
 
+/** Pure matching plan: callers supply already-fetched Google Places API (New) candidates. */
+export function buildGooglePlacesMatchingPlan(input, googlePlacesCandidates) {
+  const validation = validateSeoulDataset(input);
+  if (!validation.valid) throw new Error(`Invalid Seoul dataset: ${validation.errors.join(';')}`);
+  const accepted = []; const quarantined = [];
+  for (const place of input.places) {
+    if (reviewRiskFlags(place).includes('missing_source_url')) {
+      quarantined.push({ canonicalKey: place.canonical_key, reason: 'attachment_quarantined_missing_source_url' });
+      continue;
+    }
+    const candidates = (googlePlacesCandidates ?? []).filter((item) => normalizedPlaceName(item?.displayName?.text) === normalizedPlaceName(place.name_ko));
+    const compatible = candidates.filter((item) => {
+      const id = String(item?.id ?? '').trim();
+      const lat = tourApiCoordinate(item?.location?.latitude, 33, 39); const lng = tourApiCoordinate(item?.location?.longitude, 124, 132);
+      return Boolean(id) && lat !== null && lng !== null && seoulAddress(item?.formattedAddress);
+    });
+    if (compatible.length !== 1) {
+      quarantined.push({ canonicalKey: place.canonical_key, reason: compatible.length ? 'ambiguous_google_places_match' : 'missing_or_incompatible_google_places_match' });
+      continue;
+    }
+    const item = compatible[0]; const id = String(item.id).trim();
+    accepted.push({
+      attachmentCanonicalKey: place.canonical_key,
+      canonicalKey: `google-places:place:${id}`,
+      googlePlaces: { placeId: id, lat: tourApiCoordinate(item.location.latitude, 33, 39), lng: tourApiCoordinate(item.location.longitude, 124, 132), title: item.displayName.text.trim(), address: item.formattedAddress },
+      attachmentProvenance: { externalId: place.canonical_key, sourceUrl: place.website_url ?? null, trustLevel: place.trust_level },
+      publicationStatus: 'draft', reviewStatus: 'pending', riskFlags: reviewRiskFlags(place),
+    });
+  }
+  return { accepted, quarantined, counts: { total: input.places.length, accepted: accepted.length, quarantined: quarantined.length } };
+}
+
 function sourceCode(place) {
   const host = new URL(place.website_url).hostname.toLowerCase().replace(/^www\./, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `manual-seoul-${place.trust_level}-${host}`.slice(0, 64);
@@ -295,6 +327,39 @@ export async function runOfficialTourApiMatching({ path, serviceKey, fetchImpl =
       quarantinedBoundaryPreserved: plan.quarantined.filter((row) => row.reason === 'attachment_quarantined_missing_source_url').length === input.places.length - eligible.length,
     },
   };
+}
+
+const GOOGLE_PLACES_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
+const GOOGLE_PLACES_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.location';
+
+/** Read-only Google Places API (New) matching primitive with no raw-output, DB, import, or publication path. */
+export async function runGooglePlacesMatching({ path, apiKey, fetchImpl = fetch }) {
+  if (!apiKey || typeof apiKey !== 'string') throw new Error('GOOGLE_PLACES_API_KEY is required.');
+  const input = await readSeoulDataset(path);
+  const validation = validateSeoulDataset(input);
+  if (!validation.valid) throw new Error(`Invalid Seoul dataset: ${validation.errors.join(';')}`);
+  const eligible = input.places.filter((place) => !reviewRiskFlags(place).includes('missing_source_url'));
+  const candidates = [];
+  for (const place of eligible) {
+    const response = await fetchImpl(GOOGLE_PLACES_TEXT_SEARCH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': GOOGLE_PLACES_FIELD_MASK },
+      body: JSON.stringify({ textQuery: `${place.name_ko} Seoul South Korea`, languageCode: 'ko', maxResultCount: 5 }),
+    });
+    if (!response.ok) throw new Error(`Google Places request failed with HTTP ${response.status}.`);
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.places) ? payload.places : [];
+    const plan = buildGooglePlacesMatchingPlan({ places: [place] }, rows);
+    if (plan.counts.accepted !== 1) throw new Error('Google Places returned no uniquely verifiable candidate.');
+    candidates.push(...rows);
+  }
+  const plan = buildGooglePlacesMatchingPlan(input, candidates);
+  return { mode: 'google-places-matching-no-write', counts: plan.counts, queriedEligibleAttachments: eligible.length, invariants: {
+    productionWrites: 0,
+    allDraft: plan.accepted.every((row) => row.publicationStatus === 'draft'),
+    allPendingReview: plan.accepted.every((row) => row.reviewStatus === 'pending'),
+    quarantinedBoundaryPreserved: plan.quarantined.filter((row) => row.reason === 'attachment_quarantined_missing_source_url').length === input.places.length - eligible.length,
+  } };
 }
 
 if (String(process.argv[1] ?? '').replaceAll('\\', '/').endsWith('/seoul-content-import.js')) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
+import { buildGooglePlacesMatchingPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
 
 class FakeDb {
   tables = { data_sources: [], pipeline_runs: [], source_items_raw: [], canonical_places: [], place_provenance: [], data_review_queue: [] };
@@ -97,6 +97,27 @@ test('TourAPI matching never admits an attachment row quarantined for missing HT
   const plan = buildTourApiMatchingPlan(input, [otherwiseCompatible]);
   assert.equal(plan.counts.accepted, 0);
   assert.deepEqual(plan.quarantined.find((row) => row.canonicalKey === quarantined.canonical_key), { canonicalKey: quarantined.canonical_key, reason: 'attachment_quarantined_missing_source_url' });
+});
+
+test('Google Places matching accepts only a unique Korean title, Seoul address, place ID, and coordinates', () => {
+  const input = dataset(); const target = input.places[0];
+  const match = { id: 'ChIJ-test', displayName: { text: target.name_ko }, formattedAddress: '서울특별시 종로구', location: { latitude: 37.57, longitude: 126.98 } };
+  const plan = buildGooglePlacesMatchingPlan(input, [match]);
+  assert.equal(plan.counts.accepted, 1); assert.equal(plan.counts.quarantined, 119);
+  assert.deepEqual(plan.accepted[0].googlePlaces, { placeId: 'ChIJ-test', lat: 37.57, lng: 126.98, title: target.name_ko, address: '서울특별시 종로구' });
+  assert.equal(plan.accepted[0].canonicalKey, 'google-places:place:ChIJ-test');
+  assert.equal(plan.accepted[0].publicationStatus, 'draft');
+});
+
+test('Google Places matching quarantines incomplete, non-Seoul, ambiguous, and source-evidence-invalid records', () => {
+  const input = dataset(); const target = input.places[0];
+  const candidate = { id: 'ChIJ-one', displayName: { text: target.name_ko }, formattedAddress: '서울특별시', location: { latitude: 37.57, longitude: 126.98 } };
+  assert.equal(buildGooglePlacesMatchingPlan(input, [{ ...candidate, id: '' }]).counts.accepted, 0);
+  assert.equal(buildGooglePlacesMatchingPlan(input, [{ ...candidate, formattedAddress: '부산광역시' }]).counts.accepted, 0);
+  assert.ok(buildGooglePlacesMatchingPlan(input, [candidate, { ...candidate, id: 'ChIJ-two' }]).quarantined.some((row) => row.reason === 'ambiguous_google_places_match'));
+  const quarantined = input.places[45];
+  const boundary = buildGooglePlacesMatchingPlan(input, [{ ...candidate, displayName: { text: quarantined.name_ko } }]);
+  assert.deepEqual(boundary.quarantined.find((row) => row.canonicalKey === quarantined.canonical_key), { canonicalKey: quarantined.canonical_key, reason: 'attachment_quarantined_missing_source_url' });
 });
 
 test('server-side writer preserves draft, raw, provenance, review, and idempotent replay', async () => {
