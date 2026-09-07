@@ -91,6 +91,21 @@ function seoulAddress(value = '') {
   return /서울|seoul/i.test(String(value));
 }
 
+/**
+ * Bounded, deterministic Google Places query policy. A traceable Seoul address
+ * makes the first query more specific; the existing Seoul-wide query is a
+ * fallback only when that precise query finds no compatible candidate.
+ */
+export function buildGooglePlacesQueryPlan(place: any) {
+  const name = String(place?.name_ko ?? '').trim();
+  if (!name) throw new Error('Google Places query requires name_ko.');
+  const sourceAddress = String(place?.address_ko ?? '').trim();
+  const queries = seoulAddress(sourceAddress)
+    ? [`${name} ${sourceAddress}`, `${name} Seoul South Korea`]
+    : [`${name} Seoul South Korea`];
+  return [...new Set(queries)].map((textQuery) => ({ textQuery, languageCode: 'ko', maxResultCount: 5 }));
+}
+
 /** Pure matching plan: callers supply already-fetched official TourAPI candidates. */
 export function buildTourApiMatchingPlan(input, tourApiCandidates) {
   const validation = validateSeoulDataset(input);
@@ -358,16 +373,22 @@ export async function runGooglePlacesMatching({ path, apiKey, fetchImpl = fetch 
   const eligible = input.places.filter((place) => !reviewRiskFlags(place).includes('missing_source_url'));
   const candidates = [];
   for (const place of eligible) {
-    const response = await fetchImpl(GOOGLE_PLACES_TEXT_SEARCH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': GOOGLE_PLACES_FIELD_MASK },
-      body: JSON.stringify({ textQuery: `${place.name_ko} Seoul South Korea`, languageCode: 'ko', maxResultCount: 5 }),
-    });
-    if (!response.ok) throw new Error(`Google Places request failed with HTTP ${response.status}.`);
-    const payload = await response.json();
-    const rows = Array.isArray(payload?.places) ? payload.places : [];
-    if (googlePlacesCompatibleCandidates(place, rows).length !== 1) throw new Error('Google Places returned no uniquely verifiable candidate.');
-    candidates.push(...rows);
+    let matchedRows: any[] | null = null;
+    for (const query of buildGooglePlacesQueryPlan(place)) {
+      const response = await fetchImpl(GOOGLE_PLACES_TEXT_SEARCH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': GOOGLE_PLACES_FIELD_MASK },
+        body: JSON.stringify(query),
+      });
+      if (!response.ok) throw new Error(`Google Places request failed with HTTP ${response.status}.`);
+      const payload = await response.json();
+      const rows = Array.isArray(payload?.places) ? payload.places : [];
+      const compatible = googlePlacesCompatibleCandidates(place, rows);
+      if (compatible.length > 1) throw new Error('Google Places returned ambiguous verifiable candidates.');
+      if (compatible.length === 1) { matchedRows = rows; break; }
+    }
+    if (!matchedRows) throw new Error('Google Places returned no uniquely verifiable candidate.');
+    candidates.push(...matchedRows);
   }
   const plan = buildGooglePlacesMatchingPlan(input, candidates);
   return {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGooglePlacesMatchingPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
+import { buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
 
 class FakeDb {
   tables = { data_sources: [], pipeline_runs: [], source_items_raw: [], canonical_places: [], place_provenance: [], data_review_queue: [] };
@@ -114,6 +114,18 @@ test('Google Places matching treats duplicate rows for one place ID as one deter
   const match = { id: 'ChIJ-same', displayName: { text: target.name_ko }, formattedAddress: '서울특별시 종로구', location: { latitude: 37.57, longitude: 126.98 } };
   const plan = buildGooglePlacesMatchingPlan(input, [match, { ...match }]);
   assert.equal(plan.counts.accepted, 1); assert.equal(plan.accepted[0].googlePlaces.placeId, 'ChIJ-same');
+});
+test('Google Places query v2 prefers a traceable Seoul address and retains a bounded Seoul fallback', () => {
+  const target = place(1, 'official', 'https://english.visitseoul.net/place');
+  target.address_ko = '서울특별시 종로구 사직로 161';
+  assert.deepEqual(buildGooglePlacesQueryPlan(target), [
+    { textQuery: '장소 1 서울특별시 종로구 사직로 161', languageCode: 'ko', maxResultCount: 5 },
+    { textQuery: '장소 1 Seoul South Korea', languageCode: 'ko', maxResultCount: 5 },
+  ]);
+  target.address_ko = null;
+  assert.deepEqual(buildGooglePlacesQueryPlan(target), [
+    { textQuery: '장소 1 Seoul South Korea', languageCode: 'ko', maxResultCount: 5 },
+  ]);
 });
 test('Google Places matching quarantines incomplete, non-Seoul, ambiguous, and source-evidence-invalid records', () => {
   const input = dataset(); const target = input.places[0];
