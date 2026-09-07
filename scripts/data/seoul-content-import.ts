@@ -184,6 +184,51 @@ export function buildGooglePlacesMatchingPlan(input, googlePlacesCandidates) {
   return { accepted, quarantined, counts: { total: input.places.length, accepted: accepted.length, quarantined: quarantined.length } };
 }
 
+/**
+ * Builds a review-only cross-source manifest. Google establishes the immutable
+ * place identity; one official or merchant HTTPS page is mandatory independent
+ * primary evidence. A community listing is optional corroboration and is
+ * reduced to three agreement booleans so no reviews, photos, or user content
+ * enter the manifest.
+ */
+export function buildCrossSourceVerificationManifest(input, googlePlacesCandidates, evidenceRecords: any[] = []) {
+  const matching = buildGooglePlacesMatchingPlan(input, googlePlacesCandidates);
+  const accepted = []; const quarantined = [...matching.quarantined];
+  for (const match of matching.accepted) {
+    const placeId = match.googlePlaces.placeId;
+    const primary = evidenceRecords
+      .filter((record) => String(record?.googlePlaceId ?? '').trim() === placeId
+        && ['official', 'merchant'].includes(record?.primaryEvidence?.kind)
+        && validHttps(record?.primaryEvidence?.url))
+      .map((record) => ({ kind: record.primaryEvidence.kind, url: record.primaryEvidence.url }))
+      .sort((left, right) => `${left.kind}:${left.url}`.localeCompare(`${right.kind}:${right.url}`));
+    const uniquePrimary = [...new Map(primary.map((record) => [`${record.kind}:${record.url}`, record])).values()];
+    if (uniquePrimary.length !== 1) {
+      quarantined.push({ canonicalKey: match.attachmentCanonicalKey, reason: uniquePrimary.length ? 'ambiguous_primary_evidence' : 'missing_primary_https_evidence' });
+      continue;
+    }
+    const source = evidenceRecords.find((record) => String(record?.googlePlaceId ?? '').trim() === placeId
+      && record?.primaryEvidence?.kind === uniquePrimary[0].kind && record?.primaryEvidence?.url === uniquePrimary[0].url);
+    const community = validHttps(source?.communityListing?.url) ? {
+      url: source.communityListing.url,
+      nameAgrees: source.communityListing?.nameAgrees === true,
+      seoulAddressAgrees: source.communityListing?.seoulAddressAgrees === true,
+      phoneLastFourAgrees: source.communityListing?.phoneLastFourAgrees === true,
+    } : null;
+    accepted.push({
+      ...match,
+      verification: {
+        googlePlaceId: placeId,
+        primaryEvidence: uniquePrimary[0],
+        communityCorroboration: community,
+        publicationStatus: 'draft',
+        reviewStatus: 'pending',
+      },
+    });
+  }
+  return { accepted, quarantined, counts: { total: input.places.length, accepted: accepted.length, quarantined: quarantined.length } };
+}
+
 function sourceCode(place) {
   const host = new URL(place.website_url).hostname.toLowerCase().replace(/^www\./, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `manual-seoul-${place.trust_level}-${host}`.slice(0, 64);

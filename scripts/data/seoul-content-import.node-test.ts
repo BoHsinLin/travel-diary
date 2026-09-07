@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
+import { buildCrossSourceVerificationManifest, buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
 
 class FakeDb {
   tables = { data_sources: [], pipeline_runs: [], source_items_raw: [], canonical_places: [], place_provenance: [], data_review_queue: [] };
@@ -126,6 +126,37 @@ test('Google Places query v2 prefers a traceable Seoul address and retains a bou
   assert.deepEqual(buildGooglePlacesQueryPlan(target), [
     { textQuery: '장소 1 Seoul South Korea', languageCode: 'ko', maxResultCount: 5 },
   ]);
+});
+
+test('cross-source manifest requires one primary HTTPS proof and sanitizes optional community corroboration', () => {
+  const input = dataset(); const target = input.places[0];
+  const candidate = { id: 'ChIJ-cross', displayName: { text: target.name_ko }, formattedAddress: '서울특별시 종로구', location: { latitude: 37.57, longitude: 126.98 } };
+  const evidence = [{
+    googlePlaceId: 'ChIJ-cross', primaryEvidence: { kind: 'official', url: 'https://example.kr/venue' },
+    communityListing: { url: 'https://community.example/venue', nameAgrees: true, seoulAddressAgrees: true, phoneLastFourAgrees: false, review: 'do not retain', photos: ['do not retain'] },
+  }];
+  const manifest = buildCrossSourceVerificationManifest(input, [candidate], evidence);
+  assert.equal(manifest.counts.accepted, 1);
+  assert.deepEqual(manifest.accepted[0].verification, {
+    googlePlaceId: 'ChIJ-cross', primaryEvidence: { kind: 'official', url: 'https://example.kr/venue' },
+    communityCorroboration: { url: 'https://community.example/venue', nameAgrees: true, seoulAddressAgrees: true, phoneLastFourAgrees: false },
+    publicationStatus: 'draft', reviewStatus: 'pending',
+  });
+  assert.equal(JSON.stringify(manifest).includes('do not retain'), false);
+  assert.equal(buildCrossSourceVerificationManifest(input, [candidate], []).counts.accepted, 0);
+  assert.ok(buildCrossSourceVerificationManifest(input, [candidate], [{ googlePlaceId: 'ChIJ-cross', primaryEvidence: { kind: 'official', url: 'http://example.kr' } }]).quarantined.some((row) => row.reason === 'missing_primary_https_evidence'));
+});
+
+test('cross-source manifest preserves the original evidence quarantine and fails closed on conflicting primary proofs', () => {
+  const input = dataset(); const candidate = { id: 'ChIJ-ambiguous-proof', displayName: { text: input.places[0].name_ko }, formattedAddress: '서울특별시', location: { latitude: 37.57, longitude: 126.98 } };
+  const evidence = [
+    { googlePlaceId: candidate.id, primaryEvidence: { kind: 'official', url: 'https://official.example/venue' } },
+    { googlePlaceId: candidate.id, primaryEvidence: { kind: 'merchant', url: 'https://merchant.example/venue' } },
+  ];
+  const ambiguous = buildCrossSourceVerificationManifest(input, [candidate], evidence);
+  assert.ok(ambiguous.quarantined.some((row) => row.reason === 'ambiguous_primary_evidence'));
+  const blocked = buildCrossSourceVerificationManifest(input, [{ ...candidate, displayName: { text: input.places[45].name_ko } }], evidence);
+  assert.deepEqual(blocked.quarantined.find((row) => row.canonicalKey === input.places[45].canonical_key), { canonicalKey: input.places[45].canonical_key, reason: 'attachment_quarantined_missing_source_url' });
 });
 test('Google Places matching quarantines incomplete, non-Seoul, ambiguous, and source-evidence-invalid records', () => {
   const input = dataset(); const target = input.places[0];
