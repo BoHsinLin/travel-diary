@@ -124,6 +124,15 @@ export function buildTourApiMatchingPlan(input, tourApiCandidates) {
 }
 
 /** Pure matching plan: callers supply already-fetched Google Places API (New) candidates. */
+function googlePlacesCompatibleCandidates(place, googlePlacesCandidates) {
+  const candidates = (googlePlacesCandidates ?? []).filter((item) => normalizedPlaceName(item?.displayName?.text) === normalizedPlaceName(place.name_ko));
+  return candidates.filter((item) => {
+    const id = String(item?.id ?? '').trim();
+    const lat = tourApiCoordinate(item?.location?.latitude, 33, 39); const lng = tourApiCoordinate(item?.location?.longitude, 124, 132);
+    return Boolean(id) && lat !== null && lng !== null && seoulAddress(item?.formattedAddress);
+  });
+}
+
 export function buildGooglePlacesMatchingPlan(input, googlePlacesCandidates) {
   const validation = validateSeoulDataset(input);
   if (!validation.valid) throw new Error(`Invalid Seoul dataset: ${validation.errors.join(';')}`);
@@ -133,12 +142,7 @@ export function buildGooglePlacesMatchingPlan(input, googlePlacesCandidates) {
       quarantined.push({ canonicalKey: place.canonical_key, reason: 'attachment_quarantined_missing_source_url' });
       continue;
     }
-    const candidates = (googlePlacesCandidates ?? []).filter((item) => normalizedPlaceName(item?.displayName?.text) === normalizedPlaceName(place.name_ko));
-    const compatible = candidates.filter((item) => {
-      const id = String(item?.id ?? '').trim();
-      const lat = tourApiCoordinate(item?.location?.latitude, 33, 39); const lng = tourApiCoordinate(item?.location?.longitude, 124, 132);
-      return Boolean(id) && lat !== null && lng !== null && seoulAddress(item?.formattedAddress);
-    });
+    const compatible = googlePlacesCompatibleCandidates(place, googlePlacesCandidates);
     if (compatible.length !== 1) {
       quarantined.push({ canonicalKey: place.canonical_key, reason: compatible.length ? 'ambiguous_google_places_match' : 'missing_or_incompatible_google_places_match' });
       continue;
@@ -349,8 +353,7 @@ export async function runGooglePlacesMatching({ path, apiKey, fetchImpl = fetch 
     if (!response.ok) throw new Error(`Google Places request failed with HTTP ${response.status}.`);
     const payload = await response.json();
     const rows = Array.isArray(payload?.places) ? payload.places : [];
-    const plan = buildGooglePlacesMatchingPlan({ places: [place] }, rows);
-    if (plan.counts.accepted !== 1) throw new Error('Google Places returned no uniquely verifiable candidate.');
+    if (googlePlacesCompatibleCandidates(place, rows).length !== 1) throw new Error('Google Places returned no uniquely verifiable candidate.');
     candidates.push(...rows);
   }
   const plan = buildGooglePlacesMatchingPlan(input, candidates);
