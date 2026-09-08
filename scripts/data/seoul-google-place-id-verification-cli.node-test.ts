@@ -32,6 +32,11 @@ test('direct Place-ID runner uses exactly eight reviewed IDs and emits only aggr
   });
   assert.deepEqual(result.counts, { total: 120, verified: 8, quarantined: 112, unverifiedEvidence: 0 });
   assert.deepEqual(result.invariants, { productionWrites: 0, samePlaceIds: true, allDraft: true, allPendingReview: true, rawPayloadStored: false, quarantinedBoundaryPreserved: true });
+  assert.deepEqual(result.diagnostic, {
+    mode: 'direct-google-place-id-mismatch-diagnostic-no-write',
+    counts: { reviewedEvidence: 8, strictVerified: 8, idMismatch: 0, normalizedNameMismatch: 0, sourceEvidenceMismatch: 0, seoulAddressMismatch: 0, wgs84Mismatch: 0 },
+    invariants: { productionWrites: 0, aggregateOnly: true, rawPayloadStored: false, strictAcceptanceGateChanged: false, classifiedAllReviewedEvidence: true },
+  });
   assert.equal(JSON.stringify(result).includes('official.example'), false);
   assert.equal(JSON.stringify(result).includes('ChIJ-reviewed'), false);
 });

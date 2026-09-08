@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { buildDirectGooglePlaceIdVerificationPlan, readSeoulDataset, validateCrossSourceEvidenceInput } from './seoul-content-import.js';
+import { buildDirectGooglePlaceIdVerificationPlan, diagnoseDirectGooglePlaceIdVerificationMismatches, readSeoulDataset, validateCrossSourceEvidenceInput } from './seoul-content-import.js';
 
 const GOOGLE_PLACE_DETAILS_BASE_URL = 'https://places.googleapis.com/v1/places';
 const GOOGLE_PLACE_DETAILS_FIELD_MASK = 'id,displayName,formattedAddress,location';
@@ -33,8 +33,12 @@ export async function runDirectGooglePlaceIdVerification({ datasetPath, evidence
 
   const input = await readSeoulDataset(datasetPath);
   const plan = buildDirectGooglePlaceIdVerificationPlan(input, candidates, evidenceInput);
+  const diagnostic = diagnoseDirectGooglePlaceIdVerificationMismatches(input, candidates, evidenceInput);
   if (!plan.invariants.samePlaceIds || !plan.invariants.allDraft || !plan.invariants.allPendingReview || plan.invariants.rawPayloadStored || plan.invariants.productionWrites !== 0 || !plan.invariants.quarantinedBoundaryPreserved) {
     throw new Error('Direct Google Place ID no-write invariants failed.');
+  }
+  if (diagnostic.invariants.productionWrites !== 0 || !diagnostic.invariants.aggregateOnly || diagnostic.invariants.rawPayloadStored || diagnostic.invariants.strictAcceptanceGateChanged || !diagnostic.invariants.classifiedAllReviewedEvidence) {
+    throw new Error('Direct Google Place ID diagnostic invariants failed.');
   }
 
   return {
@@ -42,6 +46,11 @@ export async function runDirectGooglePlaceIdVerification({ datasetPath, evidence
     mode: plan.mode,
     counts: plan.counts,
     invariants: plan.invariants,
+    diagnostic: {
+      mode: diagnostic.mode,
+      counts: diagnostic.counts,
+      invariants: diagnostic.invariants,
+    },
   };
 }
 
