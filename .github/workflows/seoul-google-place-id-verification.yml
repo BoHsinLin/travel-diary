@@ -1,0 +1,68 @@
+name: Seoul Google Place ID verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seoul-google-place-id-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Protected direct Google Place ID verification (no production write)
+    runs-on: ubuntu-latest
+    environment: production-content-import
+    env:
+      GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+      SEOUL_DATASET_PATH: data/imports/seoul_canonical_places_optimized_v5.json
+      CROSS_SOURCE_EVIDENCE_PATH: data/imports/cross-source-evidence-v1.json
+      VERIFICATION_SUMMARY: seoul-google-place-id-verification-summary.json
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+
+      - name: Fail closed when reviewed evidence or matching authority is unavailable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GOOGLE_PLACES_API_KEY:-}"
+          test -f "${SEOUL_DATASET_PATH}"
+          test -f "${CROSS_SOURCE_EVIDENCE_PATH}"
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate direct Place-ID contracts
+        run: pnpm test:data
+
+      - name: Produce sanitized direct Place-ID verification evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm data:seoul:google-place-id-verify -- "${SEOUL_DATASET_PATH}" "${CROSS_SOURCE_EVIDENCE_PATH}" > "${VERIFICATION_SUMMARY}"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.VERIFICATION_SUMMARY));if(x.mode!=='direct-google-place-id-verification-no-write'||x.counts.total!==120||x.invariants.productionWrites!==0||!x.invariants.samePlaceIds||!x.invariants.allDraft||!x.invariants.allPendingReview||x.invariants.rawPayloadStored||!x.invariants.quarantinedBoundaryPreserved)process.exit(1);"
+
+      - name: Publish sanitized direct Place-ID summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.VERIFICATION_SUMMARY));const c=x.counts;fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,['## Seoul direct Google Place ID verification','', '- Mode: reviewed Place Details verification only; no Supabase access', '- Verified: '+c.verified, '- Quarantined: '+c.quarantined, '- Unverified reviewed IDs: '+c.unverifiedEvidence, '- Production writes: 0', '- Publication: not authorized',''].join('\\n'));"
+
+      - name: Upload sanitized direct Place-ID evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-google-place-id-verification-${{ github.run_id }}
+          path: seoul-google-place-id-verification-summary.json
+          if-no-files-found: error
+          retention-days: 14
