@@ -1,0 +1,61 @@
+{
+  "version": "cross-source-evidence-v1",
+  "records": [
+    {
+      "googlePlaceId": "ChIJod7tSseifDUR9hXHLFNGMIs",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://royal.khs.go.kr/ENG/contents/menuInfo-gbg.do"
+      }
+    },
+    {
+      "googlePlaceId": "ChIJqWqOqFeifDURpYJ5LnxX-Fw",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://www.nseoultower.co.kr/eng/global/intro.asp"
+      }
+    },
+    {
+      "googlePlaceId": "ChIJN2x0fu2ifDUR51BupseGYmE",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://www.museum.go.kr/ENG/main/index.do"
+      }
+    },
+    {
+      "googlePlaceId": "ChIJU97c4xujfDURu6F4mICL7Ps",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://www.leeumhoam.org/"
+      }
+    },
+    {
+      "googlePlaceId": "ChIJ7flynb6jfDURr_2yp5gZwmQ",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://sema.seoul.go.kr/en/visit/seosomun"
+      }
+    },
+    {
+      "googlePlaceId": "ChIJ64M7wqSjfDURYxY0hrd2eqI",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://www.daelimmuseum.org/visit/"
+      }
+    },
+    {
+      "googlePlaceId": "ChIJuX60FsCifDURSCCDD2krBiA",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://www.gogung.go.kr/gogungEn/main/main.do"
+      }
+    },
+    {
+      "googlePlaceId": "ChIJn6buHI2ifDURw28h3P238AQ",
+      "primaryEvidence": {
+        "kind": "official",
+        "url": "https://www.mmca.go.kr/eng/visitingInfo/deoksugungInfo.do"
+      }
+    }
+  ]
+}
