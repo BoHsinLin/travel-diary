@@ -11,6 +11,7 @@ assert.match(workflow, /CROSS_SOURCE_EVIDENCE_PATH: data\/imports\/cross-source-
 assert.match(workflow, /test -n "\$\{GOOGLE_PLACES_API_KEY:-\}"/);
 assert.match(workflow, /test -f "\$\{CROSS_SOURCE_EVIDENCE_PATH\}"/);
 assert.match(workflow, /data:seoul:google-place-id-verify/);
+assert.match(workflow, /reviewedEvidence!==7/);
 assert.match(workflow, /direct-google-place-id-mismatch-diagnostic-no-write/);
 assert.match(workflow, /Strict-ID mismatches:/);
 assert.match(workflow, /Normalized-name mismatches:/);

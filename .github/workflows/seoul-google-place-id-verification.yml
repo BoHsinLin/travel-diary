@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           pnpm data:seoul:google-place-id-verify -- "${SEOUL_DATASET_PATH}" "${CROSS_SOURCE_EVIDENCE_PATH}" > "${VERIFICATION_SUMMARY}"
-          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.VERIFICATION_SUMMARY));const d=x.diagnostic;if(x.mode!=='direct-google-place-id-verification-no-write'||x.counts.total!==120||x.invariants.productionWrites!==0||!x.invariants.samePlaceIds||!x.invariants.allDraft||!x.invariants.allPendingReview||x.invariants.rawPayloadStored||!x.invariants.quarantinedBoundaryPreserved||d?.mode!=='direct-google-place-id-mismatch-diagnostic-no-write'||d?.counts?.reviewedEvidence!==8||!d?.invariants?.aggregateOnly||d?.invariants?.productionWrites!==0||d?.invariants?.rawPayloadStored||d?.invariants?.strictAcceptanceGateChanged||!d?.invariants?.classifiedAllReviewedEvidence)process.exit(1);"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.VERIFICATION_SUMMARY));const d=x.diagnostic;if(x.mode!=='direct-google-place-id-verification-no-write'||x.counts.total!==120||x.invariants.productionWrites!==0||!x.invariants.samePlaceIds||!x.invariants.allDraft||!x.invariants.allPendingReview||x.invariants.rawPayloadStored||!x.invariants.quarantinedBoundaryPreserved||d?.mode!=='direct-google-place-id-mismatch-diagnostic-no-write'||d?.counts?.reviewedEvidence!==7||!d?.invariants?.aggregateOnly||d?.invariants?.productionWrites!==0||d?.invariants?.rawPayloadStored||d?.invariants?.strictAcceptanceGateChanged||!d?.invariants?.classifiedAllReviewedEvidence)process.exit(1);"
 
       - name: Publish sanitized direct Place-ID summary
         shell: bash

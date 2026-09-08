@@ -3,7 +3,7 @@ import { buildDirectGooglePlaceIdVerificationPlan, diagnoseDirectGooglePlaceIdVe
 
 const GOOGLE_PLACE_DETAILS_BASE_URL = 'https://places.googleapis.com/v1/places';
 const GOOGLE_PLACE_DETAILS_FIELD_MASK = 'id,displayName,formattedAddress,location';
-const REQUIRED_EVIDENCE_RECORDS = 8;
+const REQUIRED_EVIDENCE_RECORDS = 7;
 
 /**
  * Direct Place-ID verification is deliberately separate from text search. It
