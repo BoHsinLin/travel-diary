@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCrossSourceEvidenceArtifact, buildCrossSourceVerificationManifest, buildDirectGooglePlaceIdVerificationPlan, buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, normalizedPlaceName, reviewRiskFlags, validateCrossSourceEvidenceInput, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
+import { buildCrossSourceEvidenceArtifact, buildCrossSourceVerificationManifest, buildDirectGooglePlaceIdVerificationPlan, buildGooglePlacesMatchingPlan, buildGooglePlacesQueryPlan, buildSeoulImportPlan, buildTourApiMatchingPlan, diagnoseDirectGooglePlaceIdVerificationMismatches, normalizedPlaceName, reviewRiskFlags, validateCrossSourceEvidenceInput, validateSeoulDataset, writeSeoulImportPlan } from './seoul-content-import.js';
 
 class FakeDb {
   tables = { data_sources: [], pipeline_runs: [], source_items_raw: [], canonical_places: [], place_provenance: [], data_review_queue: [] };
@@ -195,6 +195,30 @@ test('direct Google Place ID plan verifies only the same strict injected candida
   assert.equal(JSON.stringify(plan).includes('must not appear'), false);
   const mismatch = buildDirectGooglePlaceIdVerificationPlan(input, [{ ...candidate, id: 'ChIJ-other' }], evidenceInput);
   assert.equal(mismatch.counts.verified, 0); assert.deepEqual(mismatch.unverifiedEvidence, [{ googlePlaceId: 'ChIJ-direct', reason: 'no_strict_matching_candidate' }]);
+});
+
+test('direct Place-ID diagnostic returns only deterministic aggregate strict-gate mismatch counts', () => {
+  const input = dataset();
+  const eligible = input.places[0]; const quarantined = input.places[45];
+  const records = [
+    { googlePlaceId: 'id-pass', primaryEvidence: { kind: 'official', url: 'https://official.example/pass' } },
+    { googlePlaceId: 'id-missing', primaryEvidence: { kind: 'official', url: 'https://official.example/id' } },
+    { googlePlaceId: 'id-name', primaryEvidence: { kind: 'official', url: 'https://official.example/name' } },
+    { googlePlaceId: 'id-source', primaryEvidence: { kind: 'official', url: 'https://official.example/source' } },
+    { googlePlaceId: 'id-address', primaryEvidence: { kind: 'official', url: 'https://official.example/address' } },
+    { googlePlaceId: 'id-wgs84', primaryEvidence: { kind: 'official', url: 'https://official.example/wgs84' } },
+  ];
+  const candidates = [
+    { id: 'id-pass', displayName: { text: eligible.name_ko }, formattedAddress: '서울특별시 종로구', location: { latitude: 37.57, longitude: 126.98 }, rawPayload: 'must not appear' },
+    { id: 'id-name', displayName: { text: '다른 이름' }, formattedAddress: '서울특별시', location: { latitude: 37.57, longitude: 126.98 } },
+    { id: 'id-source', displayName: { text: quarantined.name_ko }, formattedAddress: '서울특별시', location: { latitude: 37.57, longitude: 126.98 } },
+    { id: 'id-address', displayName: { text: eligible.name_ko }, formattedAddress: '부산광역시', location: { latitude: 37.57, longitude: 126.98 } },
+    { id: 'id-wgs84', displayName: { text: eligible.name_ko }, formattedAddress: '서울특별시', location: { latitude: null, longitude: 126.98 } },
+  ];
+  const diagnostic = diagnoseDirectGooglePlaceIdVerificationMismatches(input, candidates, { version: 'cross-source-evidence-v1', records });
+  assert.deepEqual(diagnostic.counts, { reviewedEvidence: 6, strictVerified: 1, idMismatch: 1, normalizedNameMismatch: 1, sourceEvidenceMismatch: 1, seoulAddressMismatch: 1, wgs84Mismatch: 1 });
+  assert.deepEqual(diagnostic.invariants, { productionWrites: 0, aggregateOnly: true, rawPayloadStored: false, strictAcceptanceGateChanged: false, classifiedAllReviewedEvidence: true });
+  assert.equal(JSON.stringify(diagnostic).includes('must not appear'), false);
 });
 test('Google Places matching quarantines incomplete, non-Seoul, ambiguous, and source-evidence-invalid records', () => {
   const input = dataset(); const target = input.places[0];

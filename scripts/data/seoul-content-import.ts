@@ -339,6 +339,75 @@ export function buildDirectGooglePlaceIdVerificationPlan(input, injectedCandidat
   };
 }
 
+/**
+ * Pure, aggregate-only diagnostic for the direct Place-ID gate. It accepts the
+ * same injected inputs as the no-write verification plan but never returns
+ * candidates, Place IDs, names, addresses, coordinates, URLs, or raw payloads.
+ */
+export function diagnoseDirectGooglePlaceIdVerificationMismatches(input, injectedCandidates, evidenceInput) {
+  const datasetValidation = validateSeoulDataset(input);
+  if (!datasetValidation.valid) throw new Error(`Invalid Seoul dataset: ${datasetValidation.errors.join(';')}`);
+  const contract = validateCrossSourceEvidenceInput(evidenceInput);
+  if (!contract.valid) throw new Error(`Invalid cross-source evidence input: ${contract.errors.join(';')}`);
+
+  const counts = {
+    reviewedEvidence: contract.records.length,
+    strictVerified: 0,
+    idMismatch: 0,
+    normalizedNameMismatch: 0,
+    sourceEvidenceMismatch: 0,
+    seoulAddressMismatch: 0,
+    wgs84Mismatch: 0,
+  };
+  const candidates = Array.isArray(injectedCandidates) ? injectedCandidates : [];
+
+  for (const evidence of contract.records) {
+    const sameId = candidates.filter((candidate) => String(candidate?.id ?? '').trim() === evidence.googlePlaceId);
+    if (!sameId.length) {
+      counts.idMismatch += 1;
+      continue;
+    }
+    const matchingNames = sameId.filter((candidate) => input.places.some((place) =>
+      normalizedPlaceName(candidate?.displayName?.text) === normalizedPlaceName(place.name_ko)));
+    if (!matchingNames.length) {
+      counts.normalizedNameMismatch += 1;
+      continue;
+    }
+    const eligibleNames = matchingNames.filter((candidate) => input.places.some((place) =>
+      normalizedPlaceName(candidate?.displayName?.text) === normalizedPlaceName(place.name_ko)
+      && !reviewRiskFlags(place).includes('missing_source_url')));
+    if (!eligibleNames.length) {
+      counts.sourceEvidenceMismatch += 1;
+      continue;
+    }
+    const seoulCandidates = eligibleNames.filter((candidate) => seoulAddress(candidate?.formattedAddress));
+    if (!seoulCandidates.length) {
+      counts.seoulAddressMismatch += 1;
+      continue;
+    }
+    const wgs84Candidates = seoulCandidates.filter((candidate) =>
+      tourApiCoordinate(candidate?.location?.latitude, 33, 39) !== null
+      && tourApiCoordinate(candidate?.location?.longitude, 124, 132) !== null);
+    if (!wgs84Candidates.length) {
+      counts.wgs84Mismatch += 1;
+      continue;
+    }
+    counts.strictVerified += 1;
+  }
+
+  return {
+    mode: 'direct-google-place-id-mismatch-diagnostic-no-write',
+    counts,
+    invariants: {
+      productionWrites: 0,
+      aggregateOnly: true,
+      rawPayloadStored: false,
+      strictAcceptanceGateChanged: false,
+      classifiedAllReviewedEvidence: Object.values(counts).slice(1).reduce((sum, value) => sum + value, 0) === counts.reviewedEvidence,
+    },
+  };
+}
+
 function sourceCode(place) {
   const host = new URL(place.website_url).hostname.toLowerCase().replace(/^www\./, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `manual-seoul-${place.trust_level}-${host}`.slice(0, 64);
